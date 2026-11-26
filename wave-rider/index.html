@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wave Rider</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: one full-height column. Night-sea canvas on top (oscilloscope grid behind the surf), question or tuning panel below. Single dark theme by choice. */
+:root{
+  --bg:#06182b; --surface:#0d2b47; --line:#1d4c76; --text:#e9f5ff; --muted:#93b3cd;
+  --wave:#3ee0d0; --accent:#ff6b4a; --accent-ink:#1c0700; --good:#7be495; --bad:#ff6f8a; --amber:#ffc857;
+  --display:'Syne','Arial Black',system-ui,sans-serif; --body:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+#app{position:relative;height:100%;max-width:600px;margin:0 auto;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+#hud{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px 8px;white-space:nowrap;font-variant-numeric:tabular-nums;font-size:.9rem;color:var(--muted)}
+.hearts{display:flex;gap:4px;align-items:center;color:var(--muted);font-weight:700}
+.heart svg{display:block;fill:var(--accent)}
+.heart.lost svg{fill:var(--line)}
+.quit{flex:none;padding:6px 10px;margin-left:-6px;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;font:700 .8rem var(--body);cursor:pointer}
+.quit.sure{color:var(--bg);background:var(--amber);border-color:var(--amber)}
+.hearts,.hud-right{flex:none}
+@media (max-width:380px){.rw{display:none}#hud{gap:8px;padding-inline:12px}}
+.task{margin:0 0 6px;font:500 1.05rem/1.35 var(--body);color:var(--text)}
+.task b{color:var(--amber);font-weight:800}
+.hud-right{display:flex;gap:10px;align-items:baseline}
+.streak{color:var(--amber);font-weight:700}
+.score{font:800 1.15rem var(--display);color:var(--text)}
+#stage{flex:0 0 36%;min-height:170px;max-height:340px;position:relative;border-block:1px solid var(--line);overflow:hidden}
+#cv{position:absolute;inset:0;display:block;touch-action:manipulation}
+#panel{flex:1;min-height:0;overflow-y:auto;padding:16px 16px calc(28px + env(safe-area-inset-bottom))}
+.chip{display:inline-block;margin:0 0 8px;font:700 .72rem var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--wave)}
+.chiprow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 8px}
+.chiprow .chip{margin:0}
+h1{margin:0 0 8px;font:800 clamp(2.4rem,12vw,3.6rem)/.95 var(--display);letter-spacing:-.02em;text-transform:uppercase}
+h2.q{margin:0 0 14px;font:700 1.25rem/1.3 var(--body);text-wrap:balance}
+.lede{margin:0 0 16px;color:var(--muted);max-width:46ch}
+.how{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:10px}
+.how li{display:grid;grid-template-columns:76px 1fr;gap:10px;align-items:baseline}
+.how b{font:700 .75rem var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{appearance:none;border:0;border-radius:14px;min-height:52px;padding:12px 22px;background:var(--accent);color:var(--accent-ink);font:800 1rem var(--body);cursor:pointer;transition:transform .08s}
+.btn:active:not([disabled]){transform:scale(.97)}
+.btn.ghost{background:transparent;color:var(--text);border:1.5px solid var(--line)}
+.btn.small{min-height:36px;padding:6px 14px;font-size:.85rem;border-radius:10px;font-weight:700}
+.btn[disabled]{opacity:.4;cursor:default}
+.note{margin:12px 0 0;color:var(--muted);font-size:.9rem}
+button:focus-visible,input:focus-visible{outline:2px solid var(--wave);outline-offset:3px}
+.hint{margin:-6px 0 14px;color:var(--muted);font-size:.92rem}
+.status{min-height:1.5em;margin:0 0 8px;color:var(--amber);font-weight:500}
+.cap{margin:12px 0 0;padding:12px 14px;border-radius:12px;background:var(--surface);border-left:4px solid var(--wave)}
+.cap p{margin:0}
+.opts{display:grid;gap:10px}
+.opt{display:flex;gap:12px;align-items:center;width:100%;min-height:56px;padding:12px 14px;background:var(--surface);color:var(--text);border:1.5px solid var(--line);border-radius:14px;text-align:left;font:500 1rem/1.3 var(--body);cursor:pointer;transition:transform .08s,border-color .15s,background .15s}
+.opt:active:not([disabled]){transform:scale(.985)}
+.opt .key{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--bg);color:var(--muted);font:700 .8rem var(--body)}
+.opt[disabled]{cursor:default;color:var(--text)}
+.opt[disabled]:not(.right):not(.wrong){opacity:.5}
+.opt.right{border-color:var(--good);background:rgba(123,228,149,.12)}
+.opt.wrong{border-color:var(--bad);background:rgba(255,111,138,.12)}
+.fb{margin-top:14px;padding:14px 16px;border-radius:14px;background:var(--surface);border-left:4px solid var(--line)}
+.fb p{margin:0 0 10px}
+.fb p.note{margin:0 0 10px}
+.fb .btn{width:100%}
+.fb-title{font:800 1.05rem var(--display)}
+.fb-title.good{color:var(--good)}
+.fb-title.bad{color:var(--bad)}
+.ctl{margin:0 0 14px}
+.ctl-head{display:flex;justify-content:space-between;align-items:baseline;font-weight:700}
+.ctl output{font:800 1.2rem var(--display);font-variant-numeric:tabular-nums;color:var(--wave)}
+.ctl small{display:block;color:var(--muted);font-size:.85rem;margin-top:-4px}
+input[type=range]{-webkit-appearance:none;appearance:none;display:block;width:100%;height:36px;margin:0;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--line)}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;margin-top:-11px;border-radius:50%;background:var(--accent);border:3px solid var(--bg)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--accent);border:3px solid var(--bg)}
+input[type=range]:disabled{opacity:.5}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 18px}
+.stat{padding:10px 12px;border-radius:12px;background:var(--surface)}
+.stat b{display:block;font:800 1.4rem var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:.78rem;color:var(--muted)}
+.rank{margin:0;font:800 1.1rem var(--display);color:var(--amber);text-transform:uppercase;letter-spacing:.04em}
+.rev{margin:0 0 10px;padding:12px 14px;border-radius:12px;background:var(--surface)}
+.rev strong{display:block;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--wave);margin-bottom:2px}
+.rev p{margin:0}
+h3{margin:18px 0 10px;font:700 .8rem var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+#kit{position:absolute;inset:0;z-index:10;overflow-y:auto;background:rgba(6,24,43,.98);padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
+.kit-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 12px}
+.kit-head h2{margin:0;font:800 1.5rem var(--display);text-transform:uppercase;letter-spacing:-.01em}
+.kcard{margin:0 0 10px;padding:12px 14px;border-radius:14px;background:var(--surface)}
+.kcard h3{margin:0 0 6px;color:var(--wave)}
+.kcard p{margin:6px 0 0}
+.formula{font:800 1.6rem var(--display);color:var(--amber)}
+.topics{display:grid;gap:8px;margin:0 0 12px}
+.tbtn{display:grid;gap:2px;width:100%;padding:14px 16px;text-align:left;color:var(--text);background:var(--surface);border:1.5px solid var(--line);border-radius:14px;font:500 .9rem/1.3 var(--body);cursor:pointer;transition:transform .08s,border-color .15s}
+.tbtn:active{transform:scale(.985)}
+.tbtn .tn{font:800 1.1rem var(--display)}
+.tbtn .ts{color:var(--muted)}
+.tbtn .tm{color:var(--amber);font-size:.8rem;font-weight:700}
+.tbtn.last{border-color:var(--wave)}
+.tbtn[data-topic="mix"] .tn{color:var(--wave)}
+.streak.pop{display:inline-block;animation:pop .35s ease-out}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.4)}100%{transform:scale(1)}}
+#app.shake{animation:shk .36s ease-out}
+@keyframes shk{20%{transform:translateX(-6px)}50%{transform:translateX(5px)}80%{transform:translateX(-3px)}}
+@media (prefers-reduced-motion:reduce){.btn,.opt,.tbtn{transition:none}.streak.pop,#app.shake{animation:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hud" hidden>
+    <button id="hQuit" class="quit" type="button">Quit</button>
+    <span id="hRound"></span>
+    <span id="hHearts" class="hearts"></span>
+    <span class="hud-right"><span id="hStreak" class="streak"></span><span id="hScore" class="score">0</span></span>
+  </header>
+  <div id="stage"><canvas id="cv" role="img" aria-label="A wave, shown for the current round"></canvas></div>
+  <main id="panel"></main>
+  <div id="kit" role="dialog" aria-modal="true" aria-labelledby="kitTitle" hidden>
+    <div class="kit-head"><h2 id="kitTitle">Wave toolkit</h2><button id="kitClose" class="btn ghost small" type="button">Close</button></div>
+    <div id="kitBody"></div>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+
+/*LOGIC_START*/
+function fmt(n){return String(parseFloat(n.toFixed(3)));}
+function shuffle(a){var r=a.slice();for(var i=r.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=r[i];r[i]=r[j];r[j]=t;}return r;}
+function rnd(a){return a[Math.floor(Math.random()*a.length)];}
+function wrongs(correct,cands,unit){
+  var out=[];
+  cands.forEach(function(x){
+    if(!isFinite(x)||x<=0)return;
+    var s=fmt(x)+unit;
+    if(s!==correct&&out.indexOf(s)<0)out.push(s);
+  });
+  return out.slice(0,3);
+}
+
+function genSpeed(){
+  var f=rnd([2,4,5,10,20,50]),l=rnd([0.5,1,2,3,4,5]),v=f*l,a=fmt(v)+' m/s';
+  return {tier:3,tag:'Wave speed',
+    q:'A wave has a frequency of '+f+' Hz and a wavelength of '+fmt(l)+' m. What is its speed?',
+    hint:'Hint: wave speed (m/s) = frequency (Hz) × wavelength (m)',
+    a:a,w:wrongs(a,[f/l,l/f,f+l,2*v,v/2,v+f],' m/s'),
+    e:'v = f × λ = '+f+' × '+fmt(l)+' = '+fmt(v)+' m/s. Frequency is how many waves pass each second, wavelength is how long each wave is, so multiplying them gives how far the wave travels each second.'};
+}
+function genFreq(){
+  var f=rnd([2,5,10,20,50,100]),l=rnd([0.5,1,2,4,5]),v=f*l,a=fmt(f)+' Hz';
+  return {tier:3,tag:'Frequency calculation',
+    q:'A wave travels at '+fmt(v)+' m/s and has a wavelength of '+fmt(l)+' m. What is its frequency?',
+    hint:'Hint: wave speed (m/s) = frequency (Hz) × wavelength (m)',
+    a:a,w:wrongs(a,[v*l,l/v,v+l,Math.abs(v-l),2*f,f/2],' Hz'),
+    e:'Rearrange v = f × λ to get f = v ÷ λ = '+fmt(v)+' ÷ '+fmt(l)+' = '+fmt(f)+' Hz.'};
+}
+function genWavelength(){
+  var f=rnd([2,5,10,20,50,100]),l=rnd([0.5,1,2,4,5]),v=f*l,a=fmt(l)+' m';
+  return {tier:3,tag:'Wavelength calculation',
+    q:'A wave has a frequency of '+f+' Hz and a speed of '+fmt(v)+' m/s. What is its wavelength?',
+    hint:'Hint: wave speed (m/s) = frequency (Hz) × wavelength (m)',
+    a:a,w:wrongs(a,[v*f,f/v,v+f,Math.abs(v-f),2*l,l/2],' m'),
+    e:'Rearrange v = f × λ to get λ = v ÷ f = '+fmt(v)+' ÷ '+f+' = '+fmt(l)+' m.'};
+}
+function genPeriod(){
+  var f=rnd([2,4,5,10,20,25,50]),T=1/f,a=fmt(T)+' s';
+  return {tier:2,tag:'Period',
+    q:'A wave has a frequency of '+f+' Hz. What is its period?',
+    hint:'The period is the time taken for one complete wave.',
+    a:a,w:wrongs(a,[f,2*f,2*T,T/2,f/2],' s'),
+    e:'Period = 1 ÷ frequency = 1 ÷ '+f+' = '+fmt(T)+' s. If '+f+' waves pass every second, each one takes '+fmt(T)+' s.'};
+}
+function genFromPeriod(){
+  var f=rnd([2,4,5,10,20,25,50]),T=1/f,a=fmt(f)+' Hz';
+  return {tier:2,tag:'Frequency from period',
+    q:'A wave has a period of '+fmt(T)+' s. What is its frequency?',
+    hint:'Hint: frequency = 1 ÷ period',
+    a:a,w:wrongs(a,[T,2*f,f/2,10*T,f+1],' Hz'),
+    e:'Frequency = 1 ÷ period = 1 ÷ '+fmt(T)+' = '+fmt(f)+' Hz. One wave takes '+fmt(T)+' s, so '+fmt(f)+' waves fit into each second.'};
+}
+function genEcho(){
+  var t=rnd([0.2,0.4,0.5,1,2]),d=340*t/2,a=fmt(d)+' m';
+  return {tier:3,tag:'Echo calculation',
+    q:'A pupil claps and hears the echo from a wall after '+fmt(t)+' s. Sound travels at 340 m/s. How far away is the wall?',
+    hint:'Hint: the sound travels to the wall and back.',
+    a:a,w:wrongs(a,[340*t,2*340*t,340/t,340*t/4,d+340],' m'),
+    e:'In '+fmt(t)+' s the sound travels 340 × '+fmt(t)+' = '+fmt(340*t)+' m. That is the journey there and back, so the wall is half of it: '+fmt(d)+' m away.'};
+}
+function genRefIdx(){
+  var p=rnd([[0.75,0.5],[0.6,0.4],[0.9,0.6],[0.8,0.5],[0.7,0.5],[0.9,0.5],[0.6,0.5]]),n=p[0]/p[1],a=fmt(n);
+  return {tier:3,tag:'Refractive index calculation',
+    q:'A ray of light passes from air into glass. sin i = '+p[0].toFixed(2)+' and sin r = '+p[1].toFixed(2)+'. What is the refractive index of the glass?',
+    hint:'Hint: n = sin i ÷ sin r',
+    a:a,w:wrongs(a,[p[1]/p[0],p[0]*p[1],p[0]+p[1],n*2,n/2],''),
+    e:'n = sin i ÷ sin r = '+p[0].toFixed(2)+' ÷ '+p[1].toFixed(2)+' = '+fmt(n)+'. Refractive index has no units.'};
+}
+
+function genEM(){
+  var p=rnd([[100,3],[150,2],[200,1.5],[300,1],[600,0.5],[1000,0.3],[3000,0.1]]),f=p[0],l=p[1],a=fmt(l)+' m';
+  return {tier:3,tag:'EM wave calculation',
+    q:'A radio wave has a frequency of '+f+' MHz. All electromagnetic waves travel at 3 × 10⁸ m/s in a vacuum. What is its wavelength?',
+    hint:'Hint: wavelength = speed ÷ frequency. 1 MHz = 1 000 000 Hz.',
+    a:a,w:wrongs(a,[l*1000,l*10,l/10,l*100],' m'),
+    e:'λ = v ÷ f = 3 × 10⁸ ÷ ('+f+' × 10⁶) = '+fmt(l)+' m. Convert MHz to Hz first by multiplying by 1 000 000.'};
+}
+function genCrit(){
+  var n=rnd([1.33,1.5,1.52,1.6,2,2.42]),c=Math.asin(1/n)*180/Math.PI,r=Math.round(c),a=r+'°';
+  return {tier:3,tag:'Critical angle calculation',
+    q:'A material has a refractive index of '+n.toFixed(2)+'. Calculate its critical angle, to the nearest degree.',
+    hint:'Hint: sin c = 1 ÷ n',
+    a:a,w:wrongs(a,[90-r,Math.round(Math.atan(1/n)*180/Math.PI),r+7,r-7,r+14],'°'),
+    e:'sin c = 1 ÷ n = 1 ÷ '+n.toFixed(2)+' = '+fmt(1/n)+', so c = sin⁻¹('+fmt(1/n)+') = '+r+'°. The bigger the refractive index, the smaller the critical angle.'};
+}
+var BANK=[
+ // ---- tier 1: the basics ----
+ {tier:1,tag:'Amplitude',q:'What does the amplitude of a wave measure?',a:'The maximum height of the wave above its rest position',
+  w:['The distance from one crest to the next','How many waves pass each second','How fast the wave travels'],
+  e:'Amplitude is the height from the rest line up to a crest (or down to a trough). A bigger amplitude means the wave carries more energy.'},
+ {tier:1,tag:'Wavelength',q:'What is the wavelength of a wave?',a:'The distance from one crest to the next crest',
+  w:['The height of a crest above the rest line','The number of waves passing each second','The time taken for one wave'],
+  e:'Wavelength (λ) is the length of one complete wave, measured crest to crest or trough to trough, in metres.'},
+ {tier:1,tag:'Frequency',q:'What does the frequency of a wave tell you?',a:'How many waves pass a point each second',
+  w:['How tall the wave is','How far apart the crests are','How fast the wave moves'],
+  e:'Frequency is the number of waves per second. More waves each second means a higher frequency.'},
+ {tier:1,tag:'Frequency units',q:'Which unit is used for frequency?',a:'Hertz (Hz)',
+  w:['Metres (m)','Metres per second (m/s)','Seconds (s)'],
+  e:'1 hertz means 1 wave per second. 50 Hz means 50 waves every second.'},
+ {tier:1,tag:'Transverse waves',q:'In a transverse wave, the vibrations are…',a:'at right angles to the direction the wave travels',
+  w:['parallel to the direction the wave travels','in all directions at random','only ever upwards'],
+  e:'Light and ripples on water are transverse waves. Picture a rope shaken up and down while the wave moves along it.'},
+ {tier:1,tag:'Sound waves',q:'Which of these is a longitudinal wave?',a:'Sound',
+  w:['Light','Radio waves','X-rays'],
+  e:'Sound vibrates back and forth along the direction it travels, squashing particles together (compressions) and spreading them out (rarefactions).'},
+ {tier:1,tag:'Energy transfer',q:'A cork floats on water as waves pass. It bobs up and down but does not travel along with the wave. What does the wave transfer?',a:'Energy',
+  w:['Water','The cork','Matter'],
+  e:'Waves transfer energy from place to place without transferring matter. The cork just bobs on the spot.'},
+ {tier:1,tag:'Wavelength units',q:'Which unit is used for wavelength?',a:'Metres (m)',
+  w:['Hertz (Hz)','Seconds (s)','Metres per second (m/s)'],
+  e:'Wavelength is a length, so it is measured in metres. Frequency is in hertz, period in seconds and wave speed in metres per second.'},
+ {tier:1,tag:'Period',q:'What is the period of a wave?',a:'The time taken for one complete wave',
+  w:['The number of waves passing each second','The distance between two crests','The height of the wave'],
+  e:'Period (T) is measured in seconds. It is linked to frequency by T = 1 ÷ f.'},
+ {tier:1,tag:'Crests and troughs',q:'What is a trough?',a:'The lowest point of a wave',
+  w:['The highest point of a wave','The middle of a wave','The gap between two waves'],
+  e:'A crest is the highest point and a trough is the lowest. Wavelength can be measured between two neighbouring troughs just as well as between two crests.'},
+ {tier:1,tag:'Longitudinal waves',q:'In a longitudinal wave, the vibrations are…',a:'parallel to the direction the wave travels',
+  w:['at right angles to the direction the wave travels','in a circle around the direction of travel','only at the crests'],
+  e:'Sound and the push-pull wave along a slinky are longitudinal. The particles move back and forth along the line of travel.'},
+ {tier:1,tag:'Transverse waves',q:'Which of these is a transverse wave?',a:'Light',
+  w:['Sound','Ultrasound','A push-pull wave along a slinky'],
+  e:'All electromagnetic waves, including light, are transverse. Sound and ultrasound are longitudinal.'},
+ {tier:1,tag:'Compressions',q:'In a sound wave, what is a compression?',a:'A region where the particles are squashed together',
+  w:['A region where the particles are spread far apart','The highest point of the wave','A region with no particles at all'],
+  e:'Compressions are regions of higher pressure. The regions where the particles are spread out are called rarefactions.'},
+ {tier:1,tag:'Echoes',q:'What is an echo?',a:'Sound that has been reflected',
+  w:['Sound that has been refracted','Sound that has been absorbed','Sound with a very high frequency'],
+  e:'Sound bounces off hard surfaces such as walls and cliffs, so you hear it again a moment later.'},
+ {tier:1,tag:'Frequency',q:'A wave has a frequency of 50 Hz. What does that mean?',a:'50 waves pass a point every second',
+  w:['The wave travels at 50 m/s','The wavelength is 50 m','One wave takes 50 seconds'],
+  e:'Hertz means waves per second. 50 Hz is 50 complete waves every second.'},
+
+ // ---- tier 2: building up ----
+ {tier:2,tag:'Loudness',q:'Which property of a sound wave makes the sound louder?',a:'A bigger amplitude',
+  w:['A higher frequency','A longer wavelength','A faster speed'],
+  e:'Loudness depends on amplitude: a bigger amplitude carries more energy, so the sound is louder.'},
+ {tier:2,tag:'Pitch',q:'What makes a sound higher in pitch?',a:'A higher frequency',
+  w:['A bigger amplitude','A longer wavelength','A longer period'],
+  e:'Pitch depends on frequency. A mouse squeaks at a high frequency, and a lion roars at a low one.'},
+ {tier:2,tag:'Sound in space',q:'Why can sound not travel through the vacuum of space?',a:'There are no particles to pass the vibrations on',
+  w:['Space is too cold','Gravity is too weak there','Sound waves are too slow'],
+  e:'Sound is a vibration of particles, so it needs a material to travel through. Light needs no material, so it does cross space.'},
+ {tier:1,tag:'Reflection',q:'A ray of light hits a mirror. The angle of incidence is always equal to…',a:'the angle of reflection',
+  w:['the angle of refraction','90°','the critical angle'],
+  e:'The law of reflection: angle of incidence = angle of reflection, both measured from the normal (a line at 90° to the surface).'},
+ {tier:2,tag:'Hearing range',q:'What range of frequencies can a typical young person hear?',a:'20 Hz to 20 000 Hz',
+  w:['2 Hz to 200 Hz','200 Hz to 2000 Hz','20 000 Hz to 200 000 Hz'],
+  e:'Humans hear about 20 Hz to 20 kHz. Anything higher is called ultrasound, and anything lower is infrasound.'},
+ {tier:2,tag:'Wave equation',q:'Which equation links wave speed, frequency and wavelength?',a:'wave speed = frequency × wavelength',
+  w:['wave speed = frequency ÷ wavelength','wave speed = wavelength ÷ frequency','wave speed = frequency + wavelength'],
+  e:'v = f × λ. Bigger frequency or bigger wavelength both mean a faster wave.'},
+ {tier:2,tag:'Amplitude and energy',q:'The amplitude of a wave is doubled. What happens to the energy it carries?',a:'It increases',
+  w:['It decreases','It stays the same','It drops to zero'],
+  e:'A bigger amplitude means a more energetic wave: a louder sound or a brighter light. Wavelength, frequency and speed do not change.'},
+ {tier:2,tag:'Amplitude',q:'On a wave diagram, the amplitude is measured from…',a:'the rest position to a crest',
+  w:['one crest to the next crest','the lowest trough to the highest crest','the start of the wave to the end'],
+  e:'Amplitude is the maximum displacement from the rest position, so it is half the distance from trough to crest.'},
+ {tier:2,tag:'Period and frequency',q:'The frequency of a wave increases. What happens to its period?',a:'It decreases',
+  w:['It increases','It stays the same','It becomes zero'],
+  e:'T = 1 ÷ f. More waves each second means each wave takes less time.'},
+ {tier:2,tag:'Oscilloscope',q:'On an oscilloscope, a sound gets louder but its pitch stays the same. What changes on the trace?',a:'The waves get taller but stay equally spaced',
+  w:['The waves get closer together','The waves get further apart','The waves get shorter'],
+  e:'Louder means a bigger amplitude, which shows as taller waves. The same pitch means the same frequency, so the spacing stays the same.'},
+ {tier:2,tag:'Oscilloscope',q:'On an oscilloscope, a note gets higher in pitch. What changes on the trace?',a:'More waves are squeezed onto the screen',
+  w:['The waves get taller','Fewer waves fit on the screen','The trace becomes a flat line'],
+  e:'Higher pitch means a higher frequency, so more waves fit on the screen.'},
+ {tier:2,tag:'Speed of sound',q:'Roughly how fast does sound travel in air?',a:'340 m/s',
+  w:['3.4 m/s','34 000 m/s','300 000 000 m/s'],
+  e:'Sound travels at about 340 m/s in air. Light is vastly faster, which is why you see lightning before you hear thunder.'},
+ {tier:2,tag:'Sound in materials',q:'In which of these does sound usually travel fastest?',a:'A solid, such as steel',
+  w:['A liquid, such as water','A gas, such as air','A vacuum'],
+  e:'Particles in a solid are packed closely, so they pass vibrations on quickly. Sound cannot travel through a vacuum at all.'},
+ {tier:2,tag:'Ultrasound',q:'What is ultrasound?',a:'Sound with a frequency above 20 000 Hz',
+  w:['Sound with a frequency below 20 Hz','Sound that is extremely loud','Sound that travels faster than light'],
+  e:'It is too high for humans to hear. Ultrasound is used for medical scans, and animals such as bats use it to navigate.'},
+ {tier:2,tag:'The normal',q:'What is the normal on a ray diagram?',a:'A line at 90° to the surface',
+  w:['A line along the surface','The path of the incoming ray','The path of the reflected ray'],
+  e:'Angles of incidence, reflection and refraction are all measured from the normal, not from the surface.'},
+ {tier:2,tag:'Reflection',q:'A ray of light hits a mirror with an angle of incidence of 30°. What is the angle of reflection?',a:'30°',
+  w:['60°','90°','15°'],
+  e:'Angle of incidence = angle of reflection, both measured from the normal. (The angle between the two rays is 60°, which is a common trap.)'},
+ {tier:2,tag:'Refraction',q:'A ray of light passes from air into glass at an angle. It bends…',a:'towards the normal',
+  w:['away from the normal','along the normal','not at all'],
+  e:'Light slows down in glass, so it bends towards the normal. Leaving the glass into air, it bends away from the normal.'},
+ {tier:2,tag:'Refraction',q:'A ray of light passes from glass into air at an angle. It bends…',a:'away from the normal',
+  w:['towards the normal','back along its own path','not at all'],
+  e:'Light speeds up in air, so it bends away from the normal.'},
+ {tier:2,tag:'Refraction',q:'What happens to the speed of light as it enters glass from air?',a:'It decreases',
+  w:['It increases','It stays the same','It drops to zero'],
+  e:'Light travels more slowly in glass than in air. That change of speed is what makes the ray bend (refract).'},
+ {tier:2,tag:'Diffraction',q:'What is diffraction?',a:'Waves spreading out as they pass through a gap or round an edge',
+  w:['Waves bouncing off a surface','Waves changing speed in a new material','Waves cancelling each other out'],
+  e:'All waves can diffract. The effect is strongest when the gap is about the same size as the wavelength.'},
+ {tier:2,make:genPeriod},
+ {tier:2,make:genFromPeriod},
+
+ // ---- tier 3: applying it ----
+ {tier:1,tag:'EM spectrum',q:'Which electromagnetic waves have the longest wavelength?',a:'Radio waves',
+  w:['Gamma rays','X-rays','Visible light'],
+  e:'The spectrum runs radio, microwave, infrared, visible, ultraviolet, X-ray, gamma. Radio has the longest wavelength and lowest frequency.'},
+ {tier:1,tag:'EM spectrum',q:'Which electromagnetic waves have the highest frequency?',a:'Gamma rays',
+  w:['Microwaves','Infrared','Ultraviolet'],
+  e:'Gamma rays have the highest frequency and the shortest wavelength, which is why they carry so much energy.'},
+ {tier:2,tag:'EM spectrum',q:'Which electromagnetic waves do TV remote controls and thermal cameras use?',a:'Infrared',
+  w:['Ultraviolet','X-rays','Radio waves'],
+  e:'Hot objects give out infrared, which thermal cameras detect. Remote controls send pulses of infrared to the TV.'},
+ {tier:2,tag:'Speed of EM waves',q:'How does the speed of radio waves compare with the speed of gamma rays in a vacuum?',a:'They are the same',
+  w:['Radio waves are faster','Gamma rays are faster','It depends on the amplitude'],
+  e:'All electromagnetic waves travel at the same speed in a vacuum: about 300 000 000 m/s.'},
+ {tier:3,tag:'Refraction',q:'Why does a light ray bend when it passes from air into glass at an angle?',a:'Its speed changes',
+  w:['Its frequency changes','Its colour changes','Its amplitude doubles'],
+  e:'Light slows down in glass, so it bends towards the normal. The frequency stays the same, so the wavelength gets shorter.'},
+ {tier:3,tag:'EM spectrum order',q:'Which list puts the electromagnetic spectrum in order, from longest to shortest wavelength?',a:'Radio, microwave, infrared, visible, ultraviolet, X-ray, gamma',
+  w:['Gamma, X-ray, ultraviolet, visible, infrared, microwave, radio','Radio, infrared, microwave, visible, ultraviolet, X-ray, gamma','Radio, microwave, visible, infrared, ultraviolet, X-ray, gamma'],
+  e:'Radio waves have the longest wavelength and gamma rays the shortest, so frequency and energy increase in the opposite direction.'},
+ {tier:2,tag:'Visible light',q:'Which colour of visible light has the shortest wavelength?',a:'Violet',
+  w:['Red','Green','Yellow'],
+  e:'Red has the longest wavelength and lowest frequency in the visible spectrum. Violet has the shortest wavelength and highest frequency.'},
+ {tier:2,tag:'Uses of EM waves',q:'Which electromagnetic waves are used for cooking food and for satellite communication?',a:'Microwaves',
+  w:['X-rays','Ultraviolet','Gamma rays'],
+  e:'Microwaves are absorbed by water in food, which heats it. They also pass through the atmosphere to reach satellites.'},
+ {tier:2,tag:'Uses of EM waves',q:'Which electromagnetic waves are used to produce images of broken bones?',a:'X-rays',
+  w:['Infrared','Radio waves','Microwaves'],
+  e:'X-rays pass through soft tissue but are absorbed by dense bone. They are ionising, so exposure is kept as low as possible.'},
+ {tier:2,tag:'Uses of EM waves',q:'Which electromagnetic waves are used to sterilise medical equipment and to treat cancer?',a:'Gamma rays',
+  w:['Radio waves','Visible light','Infrared'],
+  e:'Gamma rays kill bacteria and cancer cells. They are ionising, so they also damage healthy cells and must be handled carefully.'},
+ {tier:1,tag:'Uses of EM waves',q:'Radio waves are mainly used for…',a:'broadcasting and communication',
+  w:['sterilising equipment','imaging broken bones','killing cancer cells'],
+  e:'Radio waves have the longest wavelengths. They carry radio and TV broadcasts and many other communication signals.'},
+ {tier:2,tag:'Hazards of EM waves',q:'Which hazard is linked to too much ultraviolet radiation?',a:'Skin cancer and eye damage',
+  w:['Overheating the whole body','Blocking mobile signals','Nothing, it is harmless'],
+  e:'UV can damage skin cells and eyes. Sunscreen and sunglasses absorb or block it.'},
+ {tier:3,tag:'Hazards of EM waves',q:'Which of these electromagnetic waves are ionising, so can damage cells and DNA?',a:'X-rays and gamma rays',
+  w:['Radio waves and microwaves','Infrared and visible light','Microwaves and infrared'],
+  e:'The highest-frequency waves carry enough energy to damage cells and DNA, which can cause cancer.'},
+ {tier:2,tag:'Speed of light',q:'What is the speed of light in a vacuum?',a:'3 × 10⁸ m/s',
+  w:['3 × 10⁶ m/s','3 × 10⁴ m/s','340 m/s'],
+  e:'About 300 000 000 m/s. All electromagnetic waves travel at this speed in a vacuum.'},
+ {tier:3,tag:'Wave speed',q:'A wave keeps the same speed, but its frequency doubles. What happens to its wavelength?',a:'It halves',
+  w:['It doubles','It stays the same','It quadruples'],
+  e:'v = f × λ. If v stays fixed, doubling f must halve λ.'},
+ {tier:2,tag:'Light and sound',q:'Why do you see lightning before you hear thunder?',a:'Light travels much faster than sound',
+  w:['Lightning happens before thunder','Light has a longer wavelength than sound','Sound is absorbed by the air'],
+  e:'Light travels at about 300 000 000 m/s and sound at about 340 m/s. The flash and the thunder happen together, but the sound takes longer to arrive.'},
+ {tier:3,tag:'Diffraction',q:'When is diffraction through a gap strongest?',a:'When the gap is about the same size as the wavelength',
+  w:['When the gap is much wider than the wavelength','When the gap is closed completely','When the wave has a very large amplitude'],
+  e:'A gap about one wavelength wide makes the wave spread out strongly. A much wider gap lets most of the wave straight through.'},
+ {tier:3,tag:'Diffraction',q:'Why can you hear someone talking round a corner, but not see them?',a:'Sound has a much longer wavelength, so it diffracts more',
+  w:['Sound travels faster than light','Light cannot be reflected','Sound has a much shorter wavelength'],
+  e:'Sound wavelengths are about the size of a doorway, so sound spreads round corners. Light wavelengths are tiny, so it hardly diffracts.'},
+ {tier:2,tag:'Optical fibres',q:'Which effect keeps light inside an optical fibre?',a:'Total internal reflection',
+  w:['Diffraction','Absorption','Refraction only'],
+  e:'Light hits the inner wall at an angle bigger than the critical angle, so it is completely reflected. Fibres carry phone, internet and TV signals, and are used in endoscopes.'},
+ {tier:3,tag:'Total internal reflection',q:'Total internal reflection can only happen when the angle of incidence is…',a:'bigger than the critical angle',
+  w:['smaller than the critical angle','exactly 0°','less than 10°'],
+  e:'The light must also be travelling in the denser material, for example glass towards air. Above the critical angle, none of it escapes.'},
+ {tier:2,tag:'Refractive index',q:'Which equation gives the refractive index, n?',a:'n = sin i ÷ sin r',
+  w:['n = sin r ÷ sin i','n = i ÷ r','n = sin i × sin r'],
+  e:'i is the angle of incidence in air and r is the angle of refraction in the material. Refractive index has no units. Glass is about 1.5.'},
+ {tier:3,tag:'Critical angle',q:'At the critical angle, the refracted ray…',a:'travels along the boundary',
+  w:['travels along the normal','is reflected back along the normal','disappears completely'],
+  e:'At exactly the critical angle the angle of refraction is 90°. Beyond it, total internal reflection happens.'},
+ {tier:3,make:genSpeed},
+ {tier:3,make:genFreq},
+ {tier:3,make:genWavelength},
+ {tier:3,make:genEcho},
+ {tier:3,make:genRefIdx},
+ // ---- appended later: keep new entries at the end so saved ids stay valid ----
+ {tier:1,tag:'EM spectrum',q:'Which of these is a type of electromagnetic wave?',a:'Radio waves',
+  w:['Sound waves','Water waves','Ultrasound'],
+  e:'Radio waves are electromagnetic. Sound, water waves and ultrasound all need a material to travel through, but electromagnetic waves do not.'},
+ {tier:1,tag:'Visible light',q:'Which part of the electromagnetic spectrum can we see with our eyes?',a:'Visible light',
+  w:['Infrared','Ultraviolet','Microwaves'],
+  e:'Visible light is the small part of the spectrum our eyes can detect. Infrared and ultraviolet sit just outside it.'},
+ {tier:1,tag:'EM spectrum',q:'Do electromagnetic waves need a material to travel through?',a:'No, they can travel through a vacuum',
+  w:['Yes, they need air','Yes, they need a solid','Only visible light can travel through a vacuum'],
+  e:'Electromagnetic waves can cross empty space. That is how light and heat reach us from the Sun.'},
+ {tier:2,tag:'EM spectrum',q:'What do all electromagnetic waves transfer from place to place?',a:'Energy',
+  w:['Matter','Air particles','Electric charge'],
+  e:'Waves transfer energy, not matter. Electromagnetic waves carry energy from the Sun to the Earth through the vacuum of space.'},
+ {tier:3,tag:'Hazards of EM waves',q:'Why are gamma rays more dangerous to living cells than radio waves?',a:'They have a higher frequency, so they carry more energy',
+  w:['They have a longer wavelength','They travel faster in a vacuum','They have a larger amplitude'],
+  e:'All electromagnetic waves travel at the same speed in a vacuum. A higher frequency means more energy, and gamma rays have enough to damage cells and DNA.'},
+ {tier:1,tag:'Reflection',q:'What happens when a ray of light hits a mirror?',a:'It bounces off',
+  w:['It is absorbed completely','It passes straight through','It changes into sound'],
+  e:'A mirror reflects light. Reflection means the light bounces off the surface instead of going through it.'},
+ {tier:1,tag:'Refraction',q:'What do we call the bending of light as it passes from one material into another?',a:'Refraction',
+  w:['Reflection','Diffraction','Absorption'],
+  e:'Light changes speed when it enters a new material, such as going from air into glass or water, and that makes it change direction. This is refraction.'},
+ {tier:3,tag:'Total internal reflection',q:'Which two conditions are both needed for total internal reflection?',a:'Light moving from a denser to a less dense material, and the angle of incidence above the critical angle',
+  w:['Light moving from a less dense to a denser material, with a small angle of incidence','Light hitting the boundary along the normal, in any material','Light moving from air into water at any angle'],
+  e:'The light must be trying to leave a denser material (like glass or water) for a less dense one (like air), and it must hit the boundary at more than the critical angle.'},
+ {tier:2,tag:'Optical fibres',q:'Which of these is a use of optical fibres?',a:'Carrying phone and internet signals as pulses of light',
+  w:['Detecting broken bones','Cooking food quickly','Killing cancer cells with gamma rays'],
+  e:'Signals travel along the fibre as pulses of light, bouncing off the inside wall by total internal reflection. Fibres are also used in endoscopes to look inside the body.'},
+ {tier:3,tag:'Refractive index',q:'Which statement about refractive index is correct?',a:'It has no units',
+  w:['It is measured in metres per second','It is always less than 1','It is measured in degrees'],
+  e:'Refractive index is a ratio (sin i ÷ sin r), so the units cancel. It is always bigger than 1 for a material, because light is slower there than in air.'},
+ {tier:3,tag:'Critical angle',q:'What happens to the critical angle of a material as its refractive index gets bigger?',a:'It gets smaller',
+  w:['It gets larger','It stays the same','It becomes 90°'],
+  e:'sin c = 1 ÷ n. A bigger n makes 1 ÷ n smaller, so c is smaller. This is why diamond (n = 2.4) traps light so well and sparkles.'},
+ {tier:3,tag:'Total internal reflection',q:'The critical angle of glass is 42°. In which case will a ray in the glass be totally internally reflected at the glass–air boundary?',a:'Angle of incidence 60°',
+  w:['Angle of incidence 20°','Angle of incidence 30°','Angle of incidence 40°'],
+  e:'Total internal reflection needs an angle of incidence bigger than the critical angle (42°). Only 60° is bigger, so only that ray is totally reflected.'},
+ {tier:2,tag:'Refraction',q:'Light passes from air into glass. What happens to its wavelength and its frequency?',a:'The wavelength decreases and the frequency stays the same',
+  w:['Both decrease','The frequency decreases and the wavelength stays the same','Both stay the same'],
+  e:'The frequency is set by the source and never changes. The speed drops in glass, and since v = f × λ with f fixed, the wavelength must decrease too.'},
+ {tier:3,make:genEM},
+ {tier:3,make:genCrit},
+ {tier:3,tag:'EM spectrum order',q:'What happens to the frequency and wavelength of electromagnetic waves as you move from radio waves towards gamma rays?',a:'Frequency increases and wavelength decreases',
+  w:['Frequency decreases and wavelength increases','Both increase','Both decrease'],
+  e:'All electromagnetic waves travel at the same speed in a vacuum, so v = f × λ means a higher frequency must give a shorter wavelength. Gamma rays have the highest frequency and the shortest wavelength.'},
+ {tier:3,tag:'EM spectrum',q:'Which statement about all electromagnetic waves is correct?',a:'They are transverse waves',
+  w:['They are longitudinal waves','They need a material to travel through','They travel at different speeds in a vacuum'],
+  e:'Electromagnetic waves are transverse: the oscillations are at right angles to the direction of travel. They can cross a vacuum, and they all travel at the same speed there.'}
+];
+
+/* Topic of every question, by tag. wp = wave properties, em = EM spectrum, ls = light and sound. Edit here to move a question. */
+var TOPIC_OF={
+ 'Amplitude':'wp','Amplitude and energy':'wp','Compressions':'wp','Crests and troughs':'wp','Diffraction':'wp','Energy transfer':'wp','Frequency':'wp','Frequency units':'wp','Longitudinal waves':'wp','Period':'wp','Period and frequency':'wp','Transverse waves':'wp','Wave equation':'wp','Wave speed':'wp','Wavelength':'wp','Wavelength units':'wp','Frequency calculation':'wp','Frequency from period':'wp','Wavelength calculation':'wp',
+ 'EM spectrum':'em','EM spectrum order':'em','Hazards of EM waves':'em','Speed of EM waves':'em','Speed of light':'em','Uses of EM waves':'em','Visible light':'em','EM wave calculation':'em',
+ 'Critical angle':'ls','Critical angle calculation':'ls','Echoes':'ls','Echo calculation':'ls','Hearing range':'ls','Light and sound':'ls','Loudness':'ls','Optical fibres':'ls','Oscilloscope':'ls','Pitch':'ls','Reflection':'ls','Refraction':'ls','Refractive index':'ls','Refractive index calculation':'ls','Sound in materials':'ls','Sound in space':'ls','Sound waves':'ls','Speed of sound':'ls','The normal':'ls','Total internal reflection':'ls','Ultrasound':'ls'
+};
+var TOPICS=[
+ {id:'wp',name:'Wave properties',sub:'Amplitude, frequency, wavelength and v = f × λ'},
+ {id:'em',name:'The EM spectrum',sub:'Uses, hazards and the order of the spectrum'},
+ {id:'ls',name:'Light and sound',sub:'Reflection, refraction, echoes and ultrasound'},
+ {id:'mix',name:'Mixed',sub:'A bit of everything'}
+];
+function topicName(id){for(var i=0;i<TOPICS.length;i++)if(TOPICS[i].id===id)return TOPICS[i].name;return '';}
+BANK.forEach(function(b,i){b.id=i;b.topic=TOPIC_OF[b.make?b.make().tag:b.tag];});
+var SEQ=['q','q','q','t1','q','q','q','t2','q','q','t3','q','t4'];
+var MAX_SCORE=9*100+10*(0+1+2+3+4+5+6+7+8)+4*300;
+var MAX_REPLAYS=4;
+
+function res(x){if(!x.make)return x;var it=x.make();it.src=x;it.id=x.id;return it;}
+function freshCopy(item){if(!item.src)return item;var n=item.src.make();n.src=item.src;n.id=item.src.id;return n;}
+/* a private copy of bank item `id`, so flags like .old never leak back into the bank */
+function itemById(id){
+  var b=BANK[id];
+  if(b.make){var it=b.make();it.src=b;it.id=id;return it;}
+  var c={};for(var k in b)c[k]=b[k];return c;
+}
+function buildQuiz(){
+  var t1=shuffle(BANK.filter(function(b){return b.tier===1;})).slice(0,3).map(res);
+  var t2=shuffle(BANK.filter(function(b){return b.tier===2;})).slice(0,3).map(res);
+  var t3=BANK.filter(function(b){return b.tier===3;});
+  var gens=t3.filter(function(b){return b.make;}),stat=t3.filter(function(b){return !b.make;});
+  var t3q=[res(rnd(gens))].concat(shuffle(stat).slice(0,2));
+  return t1.concat(t2,t3q);
+}
+/* Queue a second chance three rounds after round `afterRound` (1-based). Returns true if queued. */
+function addReplay(seq,afterRound,item,ref,done){
+  if(done>=MAX_REPLAYS||!item)return false;
+  var pos=Math.min(afterRound+3,seq.length);
+  seq.splice(pos,0,{k:'r',item:item,ref:ref});
+  return true;
+}
+
+/* ----- adaptive difficulty: level goes up on right answers and drops faster on wrong ones ----- */
+function lvlAfter(lvl,ok){return ok?Math.min(3.2,lvl+0.4):Math.max(1,lvl-0.7);}
+function tierFor(lvl){return Math.max(1,Math.min(3,Math.round(lvl)));}
+function inTopic(b,topic){return !topic||topic==='mix'||b.topic===topic;}
+function pickItem(used,lvl,topic){
+  var t=tierFor(lvl),tiers=[1,2,3].sort(function(a,b){return Math.abs(a-t)-Math.abs(b-t)||a-b;});
+  for(var i=0;i<3;i++){
+    var pool=BANK.filter(function(b){return b.tier===tiers[i]&&!used[b.id]&&inTopic(b,topic);});
+    if(pool.length)return res(rnd(pool));
+  }
+  return res(rnd(BANK.filter(function(b){return inTopic(b,topic);})));
+}
+
+/* ----- come-back loop: day streak and the questions missed last time (ids into BANK) ----- */
+function memBlank(){return {n:0,last:'',miss:[]};}
+function memClean(m){
+  var o=memBlank();
+  if(m&&typeof m==='object'){
+    o.n=Math.max(0,Math.floor(+m.n)||0);
+    o.last=typeof m.last==='string'?m.last:'';
+    o.miss=Array.isArray(m.miss)?m.miss.filter(function(i,k,a){return typeof i==='number'&&BANK[i]&&a.indexOf(i)===k;}).slice(-12):[];
+  }
+  return o;
+}
+function dayKey(d){var mo=d.getMonth()+1,da=d.getDate();return d.getFullYear()+'-'+(mo<10?'0':'')+mo+'-'+(da<10?'0':'')+da;}
+function prevKey(key){var p=key.split('-');return dayKey(new Date(+p[0],+p[1]-1,+p[2]-1));}
+function touchStreak(m,today){
+  if(m.last===today)return m;
+  m.n=(m.last===prevKey(today))?m.n+1:1;
+  m.last=today;return m;
+}
+function streakNow(m,today){return (m.last===today||m.last===prevKey(today))?m.n:0;}
+function memMiss(m,id){var i=m.miss.indexOf(id);if(i>=0)m.miss.splice(i,1);m.miss.push(id);if(m.miss.length>12)m.miss.shift();return m;}
+function memFix(m,id){var i=m.miss.indexOf(id);if(i>=0)m.miss.splice(i,1);return m;}
+function memDue(m,max,topic){return m.miss.filter(function(id){return inTopic(BANK[id],topic);}).slice(0,max);}
+function memCount(m,topic){return memDue(m,99,topic).length;}
+/*LOGIC_END*/
+
+var $=function(s){return document.querySelector(s);};
+var hud=$('#hud'),panel=$('#panel'),cv=$('#cv'),ctx=cv.getContext('2d'),kit=$('#kit');
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var TAU=Math.PI*2;
+var COL={wave:'#3ee0d0',accent:'#ff6b4a',amber:'#ffc857',good:'#7be495',bad:'#ff6f8a',muted:'#93b3cd'};
+
+function h(tag,props){
+  var e=document.createElement(tag),kids=Array.prototype.slice.call(arguments,2);
+  for(var k in (props||{})){
+    if(k==='class')e.className=props[k];
+    else if(k.indexOf('on')===0)e.addEventListener(k.slice(2),props[k]);
+    else e.setAttribute(k,props[k]);
+  }
+  kids.forEach(function walk(c){
+    if(c==null||c===false)return;
+    if(Array.isArray(c)){c.forEach(walk);return;}
+    e.append(c.nodeType?c:document.createTextNode(String(c)));
+  });
+  return e;
+}
+function fill(el){
+  var kids=[];
+  Array.prototype.slice.call(arguments,1).forEach(function w(c){
+    if(c==null||c===false)return;
+    if(Array.isArray(c))c.forEach(w);else kids.push(c);
+  });
+  el.replaceChildren.apply(el,kids);
+}
+/* best score is kept per topic; the old single best counts as the Mixed best */
+function getBest(t){try{var v=localStorage.getItem('waverider-best-'+t);if(v===null&&t==='mix')v=localStorage.getItem('waverider-best');return +v||0;}catch(e){return 0;}}
+function setBest(t,v){try{localStorage.setItem('waverider-best-'+t,String(v));}catch(e){}}
+function getLastTopic(){try{var t=localStorage.getItem('waverider-topic');return TOPICS.some(function(x){return x.id===t;})?t:'';}catch(e){return '';}}
+function setLastTopic(t){try{localStorage.setItem('waverider-topic',t);}catch(e){}}
+function getRelaxed(){try{return localStorage.getItem('waverider-relaxed')==='1';}catch(e){return false;}}
+function setRelaxed(v){try{localStorage.setItem('waverider-relaxed',v?'1':'0');}catch(e){}}
+function introSeen(){try{return localStorage.getItem('waverider-intro')==='1';}catch(e){return false;}}
+function setIntroSeen(){try{localStorage.setItem('waverider-intro','1');}catch(e){}}
+function getMem(){try{return memClean(JSON.parse(localStorage.getItem('waverider-mem')));}catch(e){return memBlank();}}
+function setMem(m){try{localStorage.setItem('waverider-mem',JSON.stringify(m));}catch(e){}}
+function soundOn(){try{return localStorage.getItem('waverider-sound')!=='0';}catch(e){return true;}}
+function setSound(v){try{localStorage.setItem('waverider-sound',v?'1':'0');}catch(e){}}
+
+/* ---------- game state ---------- */
+var S={screen:'menu',relaxed:false,lives:3,score:0,streak:0,round:0,correct:0,asked:0,tuneScore:0,
+  quiz:[],topic:'mix',lvl:1,used:{},qn:0,mem:[],streakN:0,seq:[],replays:0,missed:[],cur:null,curRef:null,isReplay:false,answered:false,qOpen:false,usedKit:false};
+var sc={mode:'ride',t:0,boost:0,wipe:0,pops:[],parts:[],tune:{pA:2,pF:2,tA:3,tF:3},intro:null};
+
+/* ---------- canvas ---------- */
+var W=1,H=1;
+function resize(){
+  var r=$('#stage').getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
+  W=Math.max(1,r.width);H=Math.max(1,r.height);
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+if(window.ResizeObserver)new ResizeObserver(resize).observe($('#stage'));
+window.addEventListener('resize',resize);
+resize();
+
+function drawGrid(){
+  ctx.strokeStyle='rgba(147,179,205,0.08)';ctx.lineWidth=1;
+  ctx.beginPath();
+  for(var x=0;x<=W;x+=36){ctx.moveTo(x+.5,0);ctx.lineTo(x+.5,H);}
+  for(var y=0;y<=H;y+=36){ctx.moveTo(0,y+.5);ctx.lineTo(W,y+.5);}
+  ctx.stroke();
+}
+function trace(fn){
+  ctx.beginPath();
+  for(var x=0;x<=W+4;x+=4){var y=fn(x);if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+}
+function closeDown(){ctx.lineTo(W+4,H);ctx.lineTo(0,H);ctx.closePath();}
+
+function drawSurfer(x,y,ang,s){
+  ctx.save();ctx.translate(x,y);ctx.rotate(ang);ctx.scale(s,s);
+  ctx.fillStyle=COL.accent;ctx.beginPath();ctx.ellipse(0,-3,22,4,0,0,TAU);ctx.fill();
+  ctx.strokeStyle='#ffe9de';ctx.lineWidth=4;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.beginPath();
+  ctx.moveTo(-8,-6);ctx.lineTo(-2,-15);ctx.lineTo(7,-6);
+  ctx.moveTo(-2,-15);ctx.lineTo(0,-27);
+  ctx.moveTo(0,-25);ctx.lineTo(-12,-21);
+  ctx.moveTo(0,-25);ctx.lineTo(12,-31);
+  ctx.stroke();
+  ctx.fillStyle='#ffe9de';ctx.beginPath();ctx.arc(1,-34,5.5,0,TAU);ctx.fill();
+  ctx.restore();
+}
+
+function drawPops(sx,sy){
+  ctx.textAlign='left';ctx.font='800 20px Syne, Arial Black, sans-serif';
+  sc.pops.forEach(function(p){
+    ctx.globalAlpha=Math.max(0,1-p.age/1.3);
+    ctx.fillStyle=p.good?COL.good:COL.bad;
+    ctx.fillText(p.text,sx+22,sy-52-(p.dy||0)-p.age*34);
+  });
+  ctx.globalAlpha=1;
+}
+
+function drawOcean(){
+  var u=H*0.075,rest=H*0.6,wp=sc.wipe>0?1-sc.wipe:0;
+  var A=1.4+1.6*sc.boost-(sc.wipe>0?0.9*Math.sin(Math.PI*wp):0);
+  var ph=sc.t*2.2;
+  function y(x,a,f,p){return rest-a*u*Math.cos(TAU*f*x/W-p);}
+  trace(function(x){return y(x,A*0.55,1.6,ph*0.7+1)-8;});closeDown();ctx.fillStyle='rgba(62,224,208,0.12)';ctx.fill();
+  trace(function(x){return y(x,A*0.8,2.4,ph*1.25+2.2)+6;});closeDown();ctx.fillStyle='rgba(62,224,208,0.2)';ctx.fill();
+  var g=ctx.createLinearGradient(0,rest-A*u,0,H);
+  g.addColorStop(0,'rgba(62,224,208,0.38)');g.addColorStop(1,'rgba(62,224,208,0.04)');
+  trace(function(x){return y(x,A,2,ph);});closeDown();ctx.fillStyle=g;ctx.fill();
+  trace(function(x){return y(x,A,2,ph);});
+  ctx.strokeStyle=COL.wave;ctx.lineWidth=3;ctx.lineJoin='round';ctx.shadowColor=COL.wave;ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
+  var sx=W*0.3,sy=y(sx,A,2,ph),slope=A*u*(TAU*2/W)*Math.sin(TAU*2*sx/W-ph);
+  var ang=Math.atan(slope)*0.85,sink=0;
+  if(sc.wipe>0){sink=Math.sin(Math.PI*wp)*H*0.14;ang+=wp*Math.PI*3;}
+  drawSurfer(sx,sy+sink,ang,Math.max(0.8,H/250));
+  drawPops(sx,sy);
+}
+
+function arrow(x1,y1,x2,y2){
+  var a=Math.atan2(y2-y1,x2-x1),s=6;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+  [[x1,y1,a+Math.PI],[x2,y2,a]].forEach(function(p){
+    ctx.moveTo(p[0],p[1]);ctx.lineTo(p[0]+Math.cos(p[2]+2.6)*s,p[1]+Math.sin(p[2]+2.6)*s);
+    ctx.moveTo(p[0],p[1]);ctx.lineTo(p[0]+Math.cos(p[2]-2.6)*s,p[1]+Math.sin(p[2]-2.6)*s);
+  });
+  ctx.stroke();
+}
+
+/* Scale lab: a trace on labelled axes (voltage in V, time in ms). The pupil reads the scales to fit the wave; the target is only shown after locking in. */
+function drawScale(T){
+  var Z=T.scale,ax=38,pw=W-ax-10,u=H*0.07,rest=H*0.46,i,x,yv;
+  ctx.textBaseline='alphabetic';
+  for(i=0;i<=20;i++){
+    x=Math.round(ax+pw*i/20)+.5;
+    ctx.strokeStyle=i%2?'rgba(147,179,205,0.10)':'rgba(147,179,205,0.24)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,rest-5*u-4);ctx.lineTo(x,rest+5*u+4);ctx.stroke();
+    if(i%2===0){ctx.fillStyle=COL.muted;ctx.font='600 10px DM Sans, system-ui, sans-serif';ctx.textAlign='center';ctx.fillText(String(Z.tt*i/20),x,rest+5*u+16);}
+  }
+  for(i=-5;i<=5;i++){
+    yv=Math.round(rest-i*u)+.5;
+    ctx.strokeStyle=i===0?'rgba(233,245,255,0.55)':'rgba(147,179,205,0.16)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(ax,yv);ctx.lineTo(ax+pw,yv);ctx.stroke();
+    ctx.fillStyle=COL.muted;ctx.font='600 10px DM Sans, system-ui, sans-serif';ctx.textAlign='right';
+    ctx.fillText((i<0?'\u2212':'')+Math.abs(i*Z.k),ax-6,yv+3.5);
+  }
+  ctx.strokeStyle='rgba(233,245,255,0.55)';ctx.beginPath();ctx.moveTo(ax+.5,rest-5*u-4);ctx.lineTo(ax+.5,rest+5*u+4);ctx.stroke();
+  function line(A,F){ctx.beginPath();for(var px=ax;px<=ax+pw+0.5;px+=3){var py=rest-A*u*Math.cos(TAU*F*(px-ax)/pw);if(px===ax)ctx.moveTo(px,py);else ctx.lineTo(px,py);}}
+  if(T.reveal){ctx.setLineDash([9,6]);ctx.strokeStyle=COL.amber;ctx.lineWidth=2.5;line(T.tA,T.tF);ctx.stroke();ctx.setLineDash([]);}
+  line(T.pA,T.pF);ctx.strokeStyle=COL.wave;ctx.lineWidth=3.5;ctx.lineJoin='round';ctx.shadowColor=COL.wave;ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
+  function tag(txt,tx,ty,align){
+    ctx.font='700 11px DM Sans, system-ui, sans-serif';ctx.textAlign=align;
+    var w=ctx.measureText(txt).width,lx=align==='right'?tx-w:tx;
+    ctx.fillStyle='rgba(6,24,43,0.82)';ctx.fillRect(lx-3,ty-11,w+6,15);ctx.fillStyle='#e9f5ff';ctx.fillText(txt,tx,ty);
+  }
+  tag('Voltage (V)',ax+8,12,'left');
+  tag('Time (ms)',W-8,H-4,'right');
+  if(T.reveal){ctx.textAlign='left';ctx.fillStyle=COL.muted;ctx.font='500 11px DM Sans, system-ui, sans-serif';ctx.fillText('dashed = target',ax+8,H-4);}
+}
+
+/* Static wave view used by the tuning rounds and the intro. In the intro there is no target wave. */
+function drawTune(){
+  if(sc.mode==='tune'&&sc.tune.scale){drawScale(sc.tune);return;}
+  var I=sc.mode==='intro'?sc.intro:null,T=sc.tune,SP=!I&&!!T.speed,u=H*0.075,rest=H*0.56,x0=W*0.08,lam=W/T.pF;
+  function y(x,A,F){return rest-A*u*Math.cos(TAU*F*(x-x0)/W);}
+  function tag(txt,x,yy,align){
+    ctx.font='700 11px DM Sans, system-ui, sans-serif';ctx.textAlign=align;
+    var w=ctx.measureText(txt).width,lx=align==='center'?x-w/2:(align==='right'?x-w:x);
+    ctx.fillStyle='rgba(6,24,43,0.82)';ctx.fillRect(lx-3,yy-11,w+6,15);
+    ctx.fillStyle='#e9f5ff';ctx.fillText(txt,x,yy);
+  }
+  ctx.setLineDash([5,5]);ctx.strokeStyle='rgba(147,179,205,0.45)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,rest);ctx.lineTo(W,rest);ctx.stroke();ctx.setLineDash([]);
+  if(!I&&!SP){
+    ctx.setLineDash([9,6]);ctx.strokeStyle=COL.amber;ctx.lineWidth=2.5;
+    trace(function(x){return y(x,T.tA,T.tF);});ctx.stroke();ctx.setLineDash([]);
+  }
+  trace(function(x){return y(x,T.pA,T.pF);});
+  ctx.strokeStyle=COL.wave;ctx.lineWidth=3.5;ctx.lineJoin='round';ctx.shadowColor=COL.wave;ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
+  var crestY=y(x0,T.pA,T.pF);
+  ctx.strokeStyle='#e9f5ff';ctx.lineWidth=1.5;
+  if(!SP&&(!I||I.step!==2)){
+    arrow(x0,rest-2,x0,crestY+2);
+    tag('amplitude',x0+8,(rest+crestY)/2+4,'left');
+  }
+  var by=Math.max(26,crestY-12);
+  if(I&&I.step===2){
+    for(var n=0;x0+n*lam<=W-6;n++){
+      var cx=x0+n*lam,marked=I.marks.indexOf(n)>=0;
+      ctx.beginPath();ctx.arc(cx,crestY,marked?7:10,0,TAU);
+      if(marked){ctx.fillStyle=COL.amber;ctx.fill();}
+      else{ctx.setLineDash([3,3]);ctx.strokeStyle=COL.amber;ctx.lineWidth=1.5;ctx.stroke();ctx.setLineDash([]);}
+    }
+    if(I.measured&&x0+(I.lo+1)*lam<=W+1){
+      var bx1=x0+I.lo*lam,bx2=x0+(I.lo+1)*lam,byy=Math.max(26,crestY-20);
+      ctx.strokeStyle='#e9f5ff';ctx.lineWidth=1.5;arrow(bx1,byy,bx2,byy);
+      tag('wavelength',(bx1+bx2)/2,byy-6,'center');
+    }
+  }else{
+    ctx.strokeStyle='#e9f5ff';ctx.lineWidth=1.5;
+    arrow(x0,by,Math.min(W-4,x0+lam),by);
+    tag(SP?'wavelength = '+fmt(12/T.pF)+' m':'wavelength',x0+Math.min(lam,W-x0)/2,by-6,'center');
+  }
+  tag('rest position',W-8,rest+16,'right');
+  if(SP){
+    tag('wave speed = 12 m/s',W-8,16,'right');
+    tag('screen width = 12 m',8,H-8,'left');
+  }
+  if(!I&&!SP){
+    ctx.textAlign='left';
+    ctx.strokeStyle=COL.wave;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(10,H-16);ctx.lineTo(30,H-16);ctx.stroke();
+    ctx.fillStyle=COL.muted;ctx.font='500 11px DM Sans, system-ui, sans-serif';ctx.fillText('your wave',36,H-12);
+    ctx.setLineDash([6,4]);ctx.strokeStyle=COL.amber;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(108,H-16);ctx.lineTo(128,H-16);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillText('target',134,H-12);
+  }
+}
+
+var last=0;
+function frame(ts){
+  var dt=Math.min(0.05,((ts-last)/1000)||0);last=ts;
+  sc.t+=dt*(reduce?0.4:1)*(1+1.3*sc.boost);
+  sc.boost=Math.max(0,sc.boost-dt/2.4);sc.wipe=Math.max(0,sc.wipe-dt/1.5);
+  sc.pops.forEach(function(p){p.age+=dt;});sc.pops=sc.pops.filter(function(p){return p.age<1.3;});
+  sc.parts.forEach(function(p){p.age+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=120*dt;p.r+=p.vr*dt;});sc.parts=sc.parts.filter(function(p){return p.age<p.life&&p.y<H+20;});
+  ctx.clearRect(0,0,W,H);
+  var g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0b2f52');g.addColorStop(1,'#06182b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  drawGrid();
+  if(sc.mode==='tune'||sc.mode==='intro')drawTune();else drawOcean();
+  sc.parts.forEach(function(p){ctx.save();ctx.globalAlpha=Math.max(0,Math.min(1,(p.life-p.age)*1.5));ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);ctx.restore();});
+  requestAnimationFrame(frame);
+}
+
+/* ---------- HUD ---------- */
+/* Quit: first tap asks 'Quit run?', second tap within 3 seconds goes back to the menu. Misses already answered stay saved; the score is not recorded. */
+var quitTimer=null;
+function quitReset(){var q=$('#hQuit');clearTimeout(quitTimer);quitTimer=null;q.classList.remove('sure');q.textContent='Quit';q.removeAttribute('aria-label');}
+function quitRun(){
+  var q=$('#hQuit');
+  if(S.screen!=='play')return;
+  if(!quitTimer){q.classList.add('sure');q.textContent='Quit run?';q.setAttribute('aria-label','Quit this run? Tap again to confirm');quitTimer=setTimeout(quitReset,3000);return;}
+  quitReset();kit.hidden=true;S.qOpen=false;S.answered=true;showMenu();
+}
+$('#hQuit').addEventListener('click',quitRun);
+var HEART='<svg viewBox="0 0 24 22" width="20" height="18" aria-hidden="true"><path d="M12 21C5 15 1 11.5 1 7.2 1 4 3.4 1.8 6.3 1.8c2.2 0 4.2 1.2 5.7 3.3 1.5-2.1 3.5-3.3 5.7-3.3C20.6 1.8 23 4 23 7.2 23 11.5 19 15 12 21z"/></svg>';
+function updateHud(){
+  hud.hidden=false;
+  $('#hRound').innerHTML='<span class="rw">Round </span>'+Math.min(S.round,S.seq.length)+' of '+S.seq.length;
+  $('#hScore').textContent=S.score.toLocaleString('en-GB');
+  var stk=$('#hStreak'),stt=S.streak>1?'Streak '+S.streak:'';
+  if(stk.textContent!==stt){stk.textContent=stt;if(stt){stk.classList.remove('pop');void stk.offsetWidth;stk.classList.add('pop');}}
+  var hh=$('#hHearts');hh.replaceChildren();
+  if(S.relaxed){hh.textContent='Relaxed';hh.removeAttribute('aria-label');return;}
+  hh.setAttribute('aria-label',S.lives+' of 3 hearts left');
+  for(var i=0;i<3;i++){var s=h('span',{class:'heart'+(i<S.lives?'':' lost')});s.innerHTML=HEART;hh.append(s);}
+}
+
+/* ---------- toolkit ---------- */
+var kitOpener=null;
+function miniWave(kind){
+  var w=280,hh=100,rest=60,A=28,x0=36,lam=120,pts=[];
+  for(var x=0;x<=w;x+=4)pts.push(x+','+(rest-A*Math.cos(TAU*(x-x0)/lam)).toFixed(1));
+  var s='<svg viewBox="0 0 '+w+' '+hh+'" role="img" aria-label="'+kind+' diagram" style="width:100%;max-width:320px;height:auto;display:block">';
+  s+='<line x1="0" y1="'+rest+'" x2="'+w+'" y2="'+rest+'" stroke="#93b3cd" stroke-opacity=".5" stroke-dasharray="4 4"/>';
+  s+='<polyline fill="none" stroke="#3ee0d0" stroke-width="3" stroke-linejoin="round" points="'+pts.join(' ')+'"/>';
+  if(kind==='amplitude'){
+    s+='<line x1="'+x0+'" y1="'+rest+'" x2="'+x0+'" y2="'+(rest-A)+'" stroke="#e9f5ff" stroke-width="2"/>';
+    s+='<text x="'+(x0+8)+'" y="'+(rest-A/2+4)+'" fill="#e9f5ff" font-size="12" font-weight="700">amplitude</text>';
+    s+='<text x="'+(w-6)+'" y="'+(rest+14)+'" fill="#93b3cd" font-size="10" text-anchor="end">rest position</text>';
+  }else{
+    var by=20;
+    s+='<line x1="'+x0+'" y1="'+by+'" x2="'+(x0+lam)+'" y2="'+by+'" stroke="#e9f5ff" stroke-width="2"/>';
+    s+='<line x1="'+x0+'" y1="'+(by-5)+'" x2="'+x0+'" y2="'+(by+5)+'" stroke="#e9f5ff" stroke-width="2"/>';
+    s+='<line x1="'+(x0+lam)+'" y1="'+(by-5)+'" x2="'+(x0+lam)+'" y2="'+(by+5)+'" stroke="#e9f5ff" stroke-width="2"/>';
+    s+='<text x="'+(x0+lam/2)+'" y="'+(by-7)+'" fill="#e9f5ff" font-size="12" font-weight="700" text-anchor="middle">wavelength</text>';
+  }
+  return s+'</svg>';
+}
+function kcard(title,svg,txt){
+  var c=h('div',{class:'kcard'},h('h3',{},title));
+  if(svg){var d=h('div',{});d.innerHTML=svg;c.append(d);}
+  (Array.isArray(txt)?txt:[txt]).forEach(function(t){c.append(t);});return c;
+}
+function buildKit(){
+  fill($('#kitBody'),
+    kcard('Amplitude',miniWave('amplitude'),h('p',{},'Height from the rest line to a crest. A bigger amplitude means more energy: a louder sound or a brighter light.')),
+    kcard('Wavelength (λ)',miniWave('wavelength'),h('p',{},'Distance from one crest to the next crest, measured in metres (m).')),
+    kcard('Frequency (f) and period (T)',null,h('p',{},'Frequency is the number of waves per second, in hertz (Hz). Period is the time for one wave, in seconds: T = 1 ÷ f.')),
+    kcard('Wave speed (v)',null,[h('div',{class:'formula'},'v = f × λ'),h('p',{},'Speed in metres per second (m/s), frequency in hertz (Hz), wavelength in metres (m).')]),
+    h('p',{class:'note'},'Opening the toolkit during a question removes the streak bonus for that question.'));
+}
+function openKit(){
+  if(S.qOpen)S.usedKit=true;
+  kitOpener=document.activeElement;kit.hidden=false;$('#kitClose').focus();
+}
+function closeKit(){
+  kit.hidden=true;
+  if(kitOpener&&document.body.contains(kitOpener))kitOpener.focus();
+}
+$('#kitClose').addEventListener('click',closeKit);
+function kitBtn(){return h('button',{class:'btn ghost small',type:'button',onclick:openKit},'Toolkit');}
+
+/* ---------- sound (Web Audio, only ever started from a tap) ---------- */
+var AC=null,osc=null,gain=null;
+function ensureAC(){
+  try{
+    var C=window.AudioContext||window.webkitAudioContext;
+    if(!C)return null;
+    AC=AC||new C();
+    if(AC.state==='suspended')AC.resume();
+    return AC;
+  }catch(e){return null;}
+}
+function blip(f,at,dur,type,vol){
+  var a=ensureAC();if(!a)return;
+  try{
+    var o=a.createOscillator(),g=a.createGain(),t=a.currentTime+at;
+    o.type=type||'sine';o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(vol||0.08,t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+dur+0.05);
+  }catch(e){}
+}
+function sfx(kind,n){
+  if(!soundOn())return;
+  if(kind==='good'){var f=440*Math.pow(2,Math.min(n||0,8)/6);blip(f,0,0.14,'triangle');blip(f*1.5,0.09,0.2,'triangle');}
+  else if(kind==='bad'){blip(196,0,0.18,'sawtooth',0.05);blip(147,0.12,0.28,'sawtooth',0.05);}
+  else if(kind==='perfect'){[523,659,784,1047].forEach(function(f,i){blip(f,i*0.08,0.22,'triangle');});}
+  else if(kind==='win'){[523,659,784,659,784,1047].forEach(function(f,i){blip(f,i*0.1,0.25,'triangle');});}
+  else if(kind==='lose'){[330,277,233,196].forEach(function(f,i){blip(f,i*0.14,0.3,'sawtooth',0.05);});}
+}
+function confetti(n){
+  if(reduce||!W)return;
+  var cols=[COL.wave,COL.accent,COL.amber,COL.good,'#ffffff'];
+  for(var i=0;i<n;i++)sc.parts.push({x:Math.random()*W,y:-10-Math.random()*H*0.3,vx:(Math.random()-0.5)*60,vy:60+Math.random()*120,r:Math.random()*TAU,vr:(Math.random()-0.5)*8,s:4+Math.random()*5,c:cols[i%cols.length],life:1.8+Math.random()*0.8,age:0});
+}
+function shake(){
+  if(reduce)return;
+  var a=$('#app');a.classList.remove('shake');void a.offsetWidth;a.classList.add('shake');
+  setTimeout(function(){a.classList.remove('shake');},380);
+}
+var PITCH=[220,262,330,392,494,587];
+function toneOn(){return !!osc;}
+function updateTone(){
+  if(!osc)return;
+  var T=sc.tune,now=AC.currentTime;
+  osc.frequency.setTargetAtTime(PITCH[Math.max(0,Math.min(5,T.pF-1))],now,0.03);
+  gain.gain.setTargetAtTime(0.03*T.pA,now,0.03);
+}
+function startTone(){
+  try{
+    var Ctor=window.AudioContext||window.webkitAudioContext;
+    if(!Ctor)return false;
+    AC=AC||new Ctor();
+    if(AC.state==='suspended')AC.resume();
+    osc=AC.createOscillator();gain=AC.createGain();
+    osc.type='sine';gain.gain.value=0;osc.connect(gain);gain.connect(AC.destination);
+    osc.start();updateTone();return true;
+  }catch(e){osc=null;return false;}
+}
+function stopTone(){
+  if(!osc)return;
+  try{osc.stop();osc.disconnect();gain.disconnect();}catch(e){}
+  osc=null;gain=null;
+}
+
+/* ---------- intro ---------- */
+function slider(id,label,min,max,val,small,onInput){
+  var out=h('output',{for:id},String(val));
+  var inp=h('input',{type:'range',id:id,min:String(min),max:String(max),step:'1',value:String(val)});
+  inp.addEventListener('input',function(){out.textContent=inp.value;onInput(+inp.value);});
+  return h('div',{class:'ctl'},h('div',{class:'ctl-head'},h('label',{for:id},label),out),inp,small?h('small',{},small):null);
+}
+function introChrome(step,title,hint){
+  return [
+    h('div',{class:'chiprow'},
+      h('p',{class:'chip'},'Quick intro: '+step+' of 3'),
+      h('button',{class:'btn ghost small',type:'button',onclick:finishIntro},'Skip intro')),
+    h('h2',{class:'q'},title),
+    h('p',{class:'hint'},hint)];
+}
+function showIntro(done,label){
+  S.screen='intro';sc.mode='intro';hud.hidden=true;stopTone();
+  sc.tune.pA=2;sc.tune.pF=3;
+  sc.intro={step:1,done:done,label:label,seenA:{},seenF:{},marks:[],measured:false,lo:0,status:null,check:null};
+  renderIntro();
+}
+function finishIntro(){
+  var I=sc.intro;if(!I)return;
+  stopTone();setIntroSeen();sc.intro=null;sc.mode='ride';
+  if(I.done)I.done();
+}
+function renderIntro(){
+  var I=sc.intro,T=sc.tune,next,cap;
+  panel.scrollTop=0;
+  if(I.step===1){
+    I.seenA={};I.seenA[T.pA]=1;
+    cap=h('div',{class:'cap','aria-live':'polite',hidden:'hidden'},h('p',{},'The height of a wave above its rest line is its ',h('b',{},'amplitude'),'. A bigger amplitude carries more energy.'));
+    next=h('button',{class:'btn',type:'button',disabled:'disabled',onclick:function(){I.step=2;T.pF=3;renderIntro();}},'Next');
+    fill(panel,
+      introChrome(1,'Make the wave taller','Drag the slider and watch the wave.'),
+      slider('iamp','Amplitude',1,5,T.pA,'Height of a crest above the rest line',function(v){
+        T.pA=v;I.seenA[v]=1;
+        if(Object.keys(I.seenA).length>=3){cap.hidden=false;next.disabled=false;}
+      }),
+      cap,
+      h('div',{class:'row',style:'margin-top:14px'},next));
+  }else if(I.step===2){
+    I.seenF={};I.seenF[T.pF]=1;I.marks=[];I.measured=false;
+    var status=h('p',{class:'status','aria-live':'polite'},'Tap a crest (a peak) on the wave above.');
+    cap=h('div',{class:'cap','aria-live':'polite',hidden:'hidden'},h('p',{},'The distance from one crest to the next is the ',h('b',{},'wavelength'),'. ',h('b',{},'Frequency'),' is how many waves pass each second. More waves in the same space means a higher frequency and a shorter wavelength.'));
+    next=h('button',{class:'btn',type:'button',disabled:'disabled',onclick:function(){I.step=3;renderIntro();}},'Next');
+    I.status=status;
+    I.check=function(){if(I.measured&&Object.keys(I.seenF).length>=3){cap.hidden=false;next.disabled=false;}};
+    fill(panel,
+      introChrome(2,'Measure one wave','Tap two neighbouring crests, then drag the slider to squeeze in more waves.'),
+      status,
+      slider('ifrq','Frequency',2,6,T.pF,'More waves squeezed in = higher frequency',function(v){
+        T.pF=v;I.seenF[v]=1;I.check();
+      }),
+      cap,
+      h('div',{class:'row',style:'margin-top:14px'},next));
+  }else{
+    var snd=h('button',{class:'btn ghost',type:'button'},'Play sound');
+    snd.addEventListener('click',function(){
+      if(toneOn()){stopTone();snd.textContent='Play sound';}
+      else if(startTone()){snd.textContent='Stop sound';}
+      else{snd.textContent='Sound not available';snd.disabled=true;}
+    });
+    fill(panel,
+      introChrome(3,'Hear it','Optional. Turn your volume up a little, press play, then change the sliders.'),
+      slider('iamp3','Amplitude',1,5,T.pA,'Bigger amplitude = louder',function(v){T.pA=v;updateTone();}),
+      slider('ifrq3','Frequency',2,6,T.pF,'Higher frequency = higher pitch',function(v){T.pF=v;updateTone();}),
+      h('div',{class:'row'},snd,
+        h('button',{class:'btn',type:'button',onclick:finishIntro},I.label||'Start playing')));
+  }
+}
+cv.addEventListener('pointerdown',function(e){
+  var I=sc.intro;
+  if(S.screen!=='intro'||!I||I.step!==2)return;
+  var r=cv.getBoundingClientRect(),x=e.clientX-r.left,T=sc.tune,x0=W*0.08,lam=W/T.pF;
+  var n=Math.round((x-x0)/lam),cx=x0+n*lam;
+  if(n<0||cx>W-6||Math.abs(x-cx)>30){I.status.textContent='Tap right on a crest, the top of a wave.';return;}
+  I.marks.push(n);if(I.marks.length>2)I.marks.shift();
+  if(I.marks.length===1){I.status.textContent='Now tap the crest right next to it.';return;}
+  if(Math.abs(I.marks[0]-I.marks[1])===1){
+    I.measured=true;I.lo=Math.min(I.marks[0],I.marks[1]);
+    I.status.textContent='That distance, crest to crest, is one wavelength.';I.check();
+  }else{
+    I.measured=false;I.status.textContent='Those two are not neighbours. Tap the crest right next to the one you picked.';
+  }
+});
+
+/* ---------- screens ---------- */
+function showMenu(){
+  S.screen='menu';sc.mode='ride';hud.hidden=true;stopTone();
+  var mm=getMem(),today=dayKey(new Date()),sn=streakNow(mm,today),last=getLastTopic(),relaxed=getRelaxed();
+  fill(panel,
+    h('p',{class:'chip'},'Physics: waves'),
+    h('h1',{},'Wave Rider'),
+    h('p',{class:'lede'},'Answer questions to catch the wave, then tune it yourself. About 7 minutes. Pick a topic to start.'),
+    h('div',{class:'topics'},TOPICS.map(function(T){
+      var best=getBest(T.id),w=memCount(mm,T.id);
+      var meta=[T.id===last?'Last played':null,best?'Best '+best.toLocaleString('en-GB'):null,w?w+(w===1?' question':' questions')+' to revisit':null].filter(Boolean).join(' · ');
+      var b=h('button',{class:'tbtn'+(T.id===last?' last':''),type:'button','data-topic':T.id},
+        h('span',{class:'tn'},T.name),h('span',{class:'ts'},T.sub),meta?h('span',{class:'tm'},meta):null);
+      b.addEventListener('click',function(){launch(T.id);});
+      return b;
+    })),
+    h('div',{class:'row'},
+      h('button',{class:'btn ghost small',type:'button',id:'relaxToggle','aria-pressed':String(relaxed),onclick:function(){setRelaxed(!relaxed);showMenu();}},'Relaxed mode: '+(relaxed?'on':'off')),
+      h('button',{class:'btn ghost small',type:'button',onclick:function(){showIntro(showMenu,'Back to menu');}},'How waves work'),
+      h('button',{class:'btn ghost small',type:'button',onclick:function(){setSound(!soundOn());if(soundOn())sfx('good',1);showMenu();}},'Sound: '+(soundOn()?'on':'off'))),
+    h('p',{class:'note'},'Relaxed mode has no hearts, so a wrong answer never ends your run.'),
+    h('ul',{class:'how'},
+      h('li',{},h('b',{},'Quiz'),h('span',{},'Pick the right answer to boost your surfer. Every answer comes with a short explanation, and missed questions come back for a second chance.')),
+      h('li',{},h('b',{},'Tune'),h('span',{},'Drag the sliders until your wave matches the dashed one.')),
+      h('li',{},h('b',{},'Hearts'),h('span',{},'You start with 3. Each wrong answer costs one.'))),
+    h('p',{class:'note'},sn>0?'Day streak: '+sn+(mm.last===today?'.':'. Play today to keep it going.'):'Play today to start a day streak.'));
+  panel.scrollTop=0;
+}
+function launch(topic){
+  setLastTopic(topic);
+  var relaxed=getRelaxed();
+  if(introSeen())start(relaxed,topic);
+  else showIntro(function(){start(relaxed,topic);},'Start playing');
+}
+
+function start(relaxed,topic){
+  S.relaxed=relaxed;S.topic=topic||'mix';S.lives=3;S.score=0;S.streak=0;S.round=0;S.correct=0;S.asked=0;S.tuneScore=0;S.missed=[];S.replays=0;
+  var mm=getMem();touchStreak(mm,dayKey(new Date()));setMem(mm);S.streakN=mm.n;
+  S.lvl=1;S.used={};S.qn=0;sc.parts=[];
+  S.mem=memDue(mm,3,S.topic).map(function(id){var it=itemById(id);it.old=true;S.used[id]=1;return it;});
+  S.seq=SEQ.slice();S.screen='play';sc.boost=0;sc.wipe=0;sc.pops=[];
+  nextRound();
+}
+function nextRound(){
+  quitReset();
+  S.round++;
+  if(S.round>S.seq.length){endGame(false);return;}
+  updateHud();
+  var k=S.seq[S.round-1];
+  if(typeof k==='object')showQuestion(k.item,k);
+  else if(k==='q')showQuestion(nextItem(),null);
+  else showTune(+k.charAt(1));
+}
+/* every other question (from the second pair on) is one missed last time, if any are waiting; the rest follow the adaptive level */
+function nextItem(){
+  S.qn++;
+  if(S.mem.length&&S.qn%2===0)return S.mem.shift();
+  var it=pickItem(S.used,S.lvl,S.topic);S.used[it.id]=1;return it;
+}
+function isLast(){return S.round>=S.seq.length;}
+
+function showQuestion(item,rep){
+  sc.mode='ride';S.cur=item;S.answered=false;S.isReplay=!!rep;S.curRef=rep?rep.ref:null;S.usedKit=false;S.qOpen=true;
+  var opts=shuffle([{t:item.a,ok:true}].concat(item.w.map(function(t){return {t:t,ok:false};})));
+  var list=h('div',{class:'opts',role:'group','aria-label':'Answers'});
+  opts.forEach(function(o,i){
+    var b=h('button',{class:'opt',type:'button'},h('span',{class:'key'},String(i+1)),h('span',{},o.t));
+    b.addEventListener('click',function(){answer(b,o,opts,list);});
+    list.append(b);
+  });
+  fill(panel,
+    h('div',{class:'chiprow'},h('p',{class:'chip'},(rep?'Second chance: ':(item.old?'From last time: ':''))+item.tag),kitBtn()),
+    h('h2',{class:'q'},item.q),
+    item.hint?h('p',{class:'hint'},item.hint):null,
+    list,
+    h('div',{id:'fb',class:'fb','aria-live':'polite',hidden:'hidden'}));
+  panel.scrollTop=0;
+}
+
+function answer(btn,o,opts,list){
+  if(S.answered)return;
+  S.answered=true;S.qOpen=false;
+  var rep=S.isReplay,queued=false,title,pts;
+  if(!rep)S.asked++;
+  Array.prototype.forEach.call(list.children,function(b,i){
+    b.disabled=true;
+    if(opts[i].ok)b.classList.add('right');else if(b===btn)b.classList.add('wrong');
+  });
+  if(o.ok){
+    if(rep){pts=50;S.score+=pts;if(S.curRef)S.curRef.fixed=true;title='Correct on the retry, +'+pts;}
+    else{
+      pts=100+(S.usedKit?0:10*S.streak);S.streak++;S.score+=pts;S.correct++;
+      title='Correct, +'+pts+(S.usedKit?' (no streak bonus)':'');
+    }
+    sc.boost=1;sc.wipe=0;sc.pops.push({text:'+'+pts,age:0,good:true});
+    sfx('good',rep?0:S.streak);
+    if(!rep&&S.streak>=3&&S.streak%2===1){sc.pops.push({text:'Streak ×'+S.streak,age:0.1,dy:30,good:true});confetti(16+S.streak*3);}
+  }else{
+    sc.wipe=1;sc.boost=0;sc.pops.push({text:'Wipeout',age:0,good:false});
+    sfx('bad');shake();
+    if(rep){title='Not quite. No heart lost on a second chance.';}
+    else{
+      S.streak=0;if(!S.relaxed)S.lives--;
+      var rec={m:S.cur,fixed:false};S.missed.push(rec);
+      queued=addReplay(S.seq,S.round,freshCopy(S.cur),rec,S.replays);
+      if(queued)S.replays++;
+      title='Not quite';
+    }
+  }
+  if(!rep){
+    var m=getMem();
+    if(o.ok){if(S.cur.old)memFix(m,S.cur.id);}else memMiss(m,S.cur.id);
+    setMem(m);
+    S.lvl=lvlAfter(S.lvl,o.ok);
+  }
+  updateHud();
+  var over=!S.relaxed&&S.lives<=0;
+  var fb=$('#fb');
+  fb.style.borderLeftColor=o.ok?'var(--good)':'var(--bad)';
+  fill(fb,
+    h('p',{class:'fb-title '+(o.ok?'good':'bad')},title),
+    h('p',{},S.cur.e),
+    queued&&!over?h('p',{class:'note'},'This one comes back in a few rounds for a second chance.'):null,
+    h('button',{class:'btn',type:'button',onclick:function(){if(over)endGame(true);else nextRound();}},(over||isLast())?'See results':'Next'));
+  fb.hidden=false;
+  fb.scrollIntoView({block:'nearest',behavior:reduce?'auto':'smooth'});
+}
+
+function showTune(lvl){
+  var T=sc.tune;sc.mode='tune';S.qOpen=false;T.speed=(lvl===4);T.scale=null;T.reveal=false;var Z=null;
+  function other(v){var c=[1,2,3,4,5].filter(function(x){return x!==v;});return rnd(c);}
+  T.tA=rnd(lvl===1?[2,3,4,5]:[1,2,3,4,5]);T.tF=rnd(lvl===1?[2,3]:[1,2,3,4,5]);
+  if(lvl===1){T.pA=other(T.tA);T.pF=T.tF;}
+  else if(lvl===2){T.pA=T.tA;T.pF=other(T.tF);}
+  else if(lvl===3){
+    /* Scale lab: target given as numbers; steps map to volts and ms through the axis scales */
+    var kk=rnd([1,2]),tt=rnd([100,200]);
+    T.tA=rnd([1,2,3,4,5]);T.tF=rnd([1,2,4,5]);T.pA=other(T.tA);T.pF=other(T.tF);
+    Z={k:kk,tt:tt,askF:rnd([true,false]),per:tt/T.tF,freq:1000*T.tF/tt};T.scale=Z;
+  }
+  else{T.tA=3;T.pA=3;T.tF=rnd([2,3,4]);T.pF=other(T.tF);}
+  var locked=false;
+  var aOut=h('output',{id:'aOut',for:'amp'},Z?'':String(T.pA)),fOut=h('output',{id:'fOut',for:'frq'},Z?'':String(T.pF));
+  var aIn=h('input',{type:'range',id:'amp',min:'1',max:'5',step:'1',value:String(T.pA)});
+  var fIn=h('input',{type:'range',id:'frq',min:'1',max:'5',step:'1',value:String(T.pF)});
+  aIn.addEventListener('input',function(){T.pA=+aIn.value;if(!Z)aOut.textContent=aIn.value;});
+  fIn.addEventListener('input',function(){T.pF=+fIn.value;if(!Z)fOut.textContent=fIn.value;});
+  var msg={1:'Change the amplitude until your wave is as tall as the dashed one.',
+           2:'Change the frequency until your wave has the same number of waves as the dashed one.',
+           3:Z?'Fit your wave to the scales. Read the voltage axis for the height and the time axis for the length of one wave.':'Match both the amplitude and the frequency.',
+           4:'This wave always travels at 12 m/s. Change the frequency and watch the wavelength change. Make the wavelength '+fmt(12/T.tF)+' m.'}[lvl];
+  var aCtl=h('div',{class:'ctl'},h('div',{class:'ctl-head'},h('label',{for:'amp'},'Amplitude'),aOut),aIn,h('small',{},Z?'Slide until a crest reaches the right height on the voltage axis':'Height of a crest above the rest line'));
+  var fCtl=h('div',{class:'ctl'},h('div',{class:'ctl-head'},h('label',{for:'frq'},lvl===4?'Frequency (Hz)':'Frequency'),fOut),fIn,h('small',{},lvl===4?'At a fixed speed, higher frequency = shorter wavelength':(Z?'More waves across the screen = shorter period = higher frequency':'More waves squeezed in = higher frequency = shorter wavelength')));
+  var fb=h('div',{id:'fb',class:'fb','aria-live':'polite',hidden:'hidden'});
+  var lock=h('button',{class:'btn',type:'button',id:'lock'},'Lock in');
+  lock.addEventListener('click',function(){
+    if(locked)return;locked=true;
+    aIn.disabled=true;fIn.disabled=true;lock.hidden=true;
+    var dA=Math.abs(T.pA-T.tA),dF=Math.abs(T.pF-T.tF),pts=Math.max(0,300-100*(dA+dF));
+    S.score+=pts;S.tuneScore+=pts;
+    if(pts>=200){sc.boost=1;sc.pops.push({text:'+'+pts,age:0,good:true});}
+    if(pts===300){sfx('perfect');confetti(40);}else if(pts>=200)sfx('good',3);else sfx('bad');
+    var tips=[];
+    if(dA)tips.push('Amplitude is the height of a crest above the rest line. Yours was too '+(T.pA<T.tA?'small':'big')+'.');
+    if(dF)tips.push('More waves in the same space means a higher frequency and a shorter wavelength. Yours had too '+(T.pF<T.tF?'few':'many')+' waves.');
+    if(!dA&&!dF)tips.push('Amplitude is the crest height above the rest line. Wavelength is the distance from crest to crest. More waves in the same space means a higher frequency.');
+    var tgt='Target: amplitude '+T.tA+', frequency '+T.tF+'.';
+    if(Z){
+      T.reveal=true;
+      tgt='Target: amplitude '+(T.tA*Z.k)+' V, period '+fmt(Z.per)+' ms ('+T.tF+(T.tF===1?' wave':' waves')+' across the screen).';
+      tips=[];
+      if(dA)tips.push('Amplitude is the height of a crest above the rest line (0 V). Yours was '+(T.pA*Z.k)+' V; it should be '+(T.tA*Z.k)+' V.');
+      if(dF)tips.push('The screen is '+Z.tt+' ms wide. A period of '+fmt(Z.per)+' ms fits '+Z.tt+' ÷ '+fmt(Z.per)+' = '+T.tF+(T.tF===1?' wave':' waves')+'. Yours fitted '+T.pF+'.');
+      if(Z.askF)tips.push('Frequency to period: T = 1 ÷ f = 1 ÷ '+fmt(Z.freq)+' = '+fmt(1/Z.freq)+' s = '+fmt(Z.per)+' ms.');
+      if(!dA&&!dF&&!Z.askF)tips.push('Period is the time for one complete wave, read along the time axis from crest to crest.');
+    }
+    if(lvl===4){
+      var tl=fmt(12/T.tF);
+      tgt='Target: wavelength '+tl+' m.';
+      tips=['v = f × λ, so f = v ÷ λ = 12 ÷ '+tl+' = '+T.tF+' Hz.',
+            dF?'With the speed fixed, a higher frequency means a shorter wavelength. Yours was '+fmt(12/T.pF)+' m.':'With the speed fixed, a higher frequency always means a shorter wavelength.'];
+    }
+    fb.style.borderLeftColor=pts>=200?'var(--good)':'var(--bad)';
+    fill(fb,
+      h('p',{class:'fb-title '+(pts>=200?'good':'bad')},pts===300?'Perfect match, +300':(pts>0?'Close, +'+pts:'Not this time, +0')),
+      h('p',{},tgt),
+      tips.map(function(t){return h('p',{},t);}),
+      h('button',{class:'btn',type:'button',onclick:function(){nextRound();}},isLast()?'See results':'Next'));
+    fb.hidden=false;updateHud();
+    fb.scrollIntoView({block:'nearest',behavior:reduce?'auto':'smooth'});
+  });
+  fill(panel,
+    h('div',{class:'chiprow'},h('p',{class:'chip'},lvl===4?'Speed lab':(Z?'Scale lab':'Wave tuning '+lvl+' of 3')),kitBtn()),
+    h('h2',{class:'q'},lvl===4?'Set the wavelength':(Z?'Fit the wave to the scale':'Match the dashed wave')),
+    Z?h('p',{class:'task'},'Make a wave with ',h('b',{},'amplitude '+(T.tA*Z.k)+' V'),' and ',h('b',{},Z.askF?'frequency '+fmt(Z.freq)+' Hz':'period '+fmt(Z.per)+' ms'),'.'):null,
+    h('p',{class:'hint'},msg+(Z&&Z.askF?' Remember: period = 1 ÷ frequency, and the time axis is in milliseconds.':'')),
+    (lvl===1||lvl===3)?aCtl:null,lvl!==1?fCtl:null,lock,fb);
+  panel.scrollTop=0;
+}
+
+function endGame(wipeout){
+  S.screen='end';sc.mode='ride';S.qOpen=false;updateHud();
+  if(wipeout){sc.wipe=1;sc.boost=0;}else{sc.boost=1;}
+  var frac=Math.min(1,S.score/MAX_SCORE);
+  var rank=wipeout?'Wipeout':(frac>0.85?'Tsunami':frac>0.65?'Breaker':frac>0.4?'Swell':'Ripple');
+  var best=getBest(S.topic),isBest=S.score>best,waiting=getMem().miss.length;
+  if(isBest)setBest(S.topic,S.score);
+  if(wipeout){sfx('lose');shake();}else{sfx('win');confetti(isBest?90:50);}
+  fill(panel,
+    h('p',{class:'chip'},(wipeout?'Out of hearts':'Run complete')+' · '+topicName(S.topic)),
+    h('h1',{},wipeout?'Wipeout':'Ride over'),
+    h('p',{class:'rank'},'Rank: '+rank+(isBest&&S.score>0?'. New best score.':'')),
+    !isBest&&best>0?h('p',{class:'note'},'Your best in '+topicName(S.topic)+' is '+best.toLocaleString('en-GB')+'. You were '+(best-S.score).toLocaleString('en-GB')+' short.'):null,
+    h('p',{class:'note'},'Day streak: '+S.streakN+'. '+(waiting?waiting+(waiting===1?' question that tripped you up will':' questions that tripped you up will')+' come back next time. Come back tomorrow to lock them in.':'No misses to revisit. Nice.')),
+    h('div',{class:'stats'},
+      h('div',{class:'stat'},h('b',{},S.score.toLocaleString('en-GB')),h('span',{},'Score')),
+      h('div',{class:'stat'},h('b',{},S.correct+'/'+S.asked),h('span',{},'Right first time')),
+      h('div',{class:'stat'},h('b',{},S.tuneScore+'/1200'),h('span',{},'Tuning points'))),
+    h('div',{class:'row'},
+      h('button',{class:'btn',type:'button',onclick:function(){start(S.relaxed,S.topic);}},'Play again'),
+      h('button',{class:'btn ghost',type:'button',onclick:showMenu},'Change topic')),
+    h('h3',{},S.missed.length?'Worth another look':'Review'),
+    S.missed.length?S.missed.map(function(r){
+      return h('div',{class:'rev'},h('strong',{},r.m.tag+(r.fixed?' · fixed on the retry':'')),h('p',{},r.m.e));
+    }):h('p',{class:'note'},'You got every question right first time. Play again for a different set of questions.'));
+  panel.scrollTop=0;
+}
+
+window.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&!kit.hidden){closeKit();return;}
+  if(!kit.hidden||S.screen!=='play'||sc.mode==='tune'||S.answered)return;
+  if(/^[1-4]$/.test(e.key)){var b=panel.querySelectorAll('.opt')[+e.key-1];if(b)b.click();}
+});
+
+buildKit();
+showMenu();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

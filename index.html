@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Physics games</title>
+<style>
+:root{--bg:#06182b;--surface:#0d2b47;--line:#1d4c76;--text:#e9f5ff;--muted:#93b3cd;--wave:#3ee0d0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 "DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:600px;margin:0 auto;padding:max(28px,env(safe-area-inset-top)) 18px 40px}
+h1{font:800 2rem/1.1 Syne,"DM Sans",system-ui,sans-serif;margin:0 0 6px}
+p{color:var(--muted);margin:0 0 20px}
+.games{display:grid;gap:10px;padding:0;margin:0;list-style:none}
+a.game{display:grid;gap:2px;padding:16px 18px;color:var(--text);text-decoration:none;background:var(--surface);border:1.5px solid var(--line);border-radius:14px}
+a.game:hover,a.game:focus-visible{border-color:var(--wave)}
+.name{font:800 1.15rem Syne,"DM Sans",system-ui,sans-serif}
+.sub{color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+  <h1>Physics games</h1>
+  <p>Short revision games for IGCSE Physics.</p>
+  <ul class="games">
+    <li><a class="game" href="wave-rider/"><span class="name">Wave Rider</span><span class="sub">Waves: wave properties, the EM spectrum, light and sound</span></a></li>
+  </ul>
+</main>
+</body>
+</html>
