@@ -284,14 +284,21 @@ function lev(a,b){
 }
 /* spelling slack: 1 slip for words of 5+ letters, 2 for words of 10+, none for short words or anything with digits */
 function fillTol(w){return /\d/.test(w)?0:(w.length>=10?2:(w.length>=5?1:0));}
+/* British and American spellings both count: ionising/ionizing, metre/meter, colour/color. Before comparing, z is read as s, -our as -or and -tre as -ter, in both the typed answer and the accepted answers. */
+function usSpell(w){
+  w=w.replace(/z/g,'s');
+  w=w.replace(/(col|vap|flav|fav|behavi|neighb|harb)our/g,'$1or');
+  w=w.replace(/(me|ce|li|fi)tre(s?)$/,'$1ter$2');
+  return w;
+}
 function fillCheck(item,input){
-  var x=normText(input);
+  var x=usSpell(normText(input));
   if(!x)return false;
   var da=99,dn=99,i,d;
-  for(i=0;i<item.ok.length;i++){var w=normText(item.ok[i]);d=lev(x,w);if(d<=fillTol(w)&&d<da)da=d;}
+  for(i=0;i<item.ok.length;i++){var w=usSpell(normText(item.ok[i]));d=lev(x,w);if(d<=fillTol(w)&&d<da)da=d;}
   if(da===99)return false;
   if(da===0)return true;
-  (item.no||[]).forEach(function(n){var q=lev(x,normText(n));if(q<dn)dn=q;});
+  (item.no||[]).forEach(function(n){var q=lev(x,usSpell(normText(n)));if(q<dn)dn=q;});
   return da<dn;
 }
 function fillHint(item){
