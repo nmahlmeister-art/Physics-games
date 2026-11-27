@@ -13,6 +13,7 @@ Revision games for IGCSE Physics (Edexcel 4PH1) aimed at pupils who do not revis
 - **A reason to come back.** Missed questions return later, day streaks, and eventually a class element.
 - **Real practice, not just recognition.** Multiple choice mostly tests recognising the answer. Add question types that need the pupil to produce or work something out.
 - **Learning checks are part of the game,** not a pop-up quiz. Progress should need the concept.
+- **Stay inside the Edexcel 4PH1 spec.** Pearson's own mapping shows diffraction is not in 4PH1 (it is Cambridge and A-level), so there are no diffraction questions. Doppler effect and wavefronts are in spec. Check any new topic against the spec before writing questions.
 - **Aim at the marks low-attaining pupils can win:** recall of key facts, units and symbols, choosing and using equations, simple calculations, reading graphs.
 
 ## Where we are
