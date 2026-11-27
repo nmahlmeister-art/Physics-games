@@ -18,14 +18,25 @@ Revision games for IGCSE Physics (Edexcel 4PH1) aimed at pupils who do not revis
 ## Where we are
 
 - Wave Rider: Waves, with topic choice (Wave properties, The EM spectrum, Light and sound, Mixed), adaptive difficulty, come-back questions, day streak, Quit button, and a Scale lab where the pupil fits a wave to labelled axes.
+- Question types in Wave Rider: multiple choice, typed numbers, fill in the blank (with spelling slack), tap-to-label diagrams (wave, compressions, reflection, EM spectrum) and sort into two groups.
 - Published at the site home page, one folder per game.
 
 ## Next
 
 1. **Test with real pupils.** A few who do not revise, in lesson time. Measure with a short topic test before and after about a week of use. This decides what else is worth building.
 2. **Teacher review of every question** against the spec and exam wording before pupils rely on them.
-3. **New question types beyond matching:** typed numeric answers, tap-to-label a wave diagram, put calculation steps in order, fill in equations and units.
-4. **More questions, more topics.** Prioritise topics by exam weight and by where pupils struggle. Eight topics in total.
+3. **More questions, more topics.** Prioritise topics by exam weight and by where pupils struggle. Eight topics in total.
+
+## Next round of question types
+
+Four more types, chosen for pupils aiming for a pass. Not built yet.
+
+1. **Put in order:** drag or tap items into order, for example the EM spectrum from lowest to highest frequency, or the steps of a calculation.
+2. **Spot the mistake:** a worked answer with an error in it, such as forgetting to convert MHz to Hz, and the pupil finds it.
+3. **Read the trace:** the reverse of the Scale lab. Show a wave on labelled axes and ask for the amplitude, period or frequency.
+4. **Build a two-mark answer:** choose the right key words and put them in a sentence about echoes or sound in a vacuum, as a stepping stone to written answers.
+
+Also worth adding to the existing types: typed answers with a choice of units, more tap-to-label diagrams (ray diagrams for refraction, an oscilloscope trace), and more sort sets.
 
 ## Then
 
